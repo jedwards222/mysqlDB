@@ -4,8 +4,10 @@
 
 ### Overview
 
-### Compilation
+### Compilation and Running
 
-### Running
+Run `make` to compile the java source code, and `make run` to run the resulting executable.
+
+Run `make clean` to remove the executable and object file created by compilation.
 
 ### Assumptions/Limitations
