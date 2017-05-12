@@ -10,7 +10,7 @@ make:
 	javac mysqldb.java
 
 run:
-	java -classpath $(CLASSPATHJ) mysqldb
+	java -classpath $(CLASSPATHS) mysqldb
 	# java -classpath $(CLASSPATHS) mysqldb
 
 clean:

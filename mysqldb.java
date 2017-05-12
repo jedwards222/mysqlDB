@@ -53,9 +53,11 @@ public class mysqldb {
 
         // Come back to main once a user signs out and let main close the connection
     //
-		} catch (SQLException e ) {          // catch SQL errors
+		}
+    catch (SQLException e ) {          // catch SQL errors
 		    System.err.format("SQL Error: %s", e.getMessage());
-		} catch (Exception e) {              // anything else
+		}
+    catch (Exception e) {              // anything else
 		    e.printStackTrace();
 		} finally {
 		  // cleanup
@@ -64,35 +66,40 @@ public class mysqldb {
   			stmt.close();
   			res.close();
   			System.out.print("\nConnection terminated.\n");
-	    } catch (Exception e) { /* ignore cleanup errors */ }
+	    }
+      catch (Exception e) { /* ignore cleanup errors */ }
 		}
   }
 
   public static void handleAuthor(Connection con) {
     System.out.println("You are in AUTHOR Mode.\nPlease register or login.");
     authorHelp();
-    Scanner a = new Scanner(System.in);
+    Scanner s = new Scanner(System.in);
     boolean completed = false;
     try {
       while (!completed) {
         System.out.print("Command: ");
-        String action = a.next();
+        String action = s.next();
+
         if (action.equals("register")) {
-          String insertQuery = "INSERT INTO Author (author_lname, " +
+          // String insertQuery = "INSERT INTO Author (author_lname, " +
+          //   "author_fname, author_address, author_affiliation, author_email) " +
+          //   "VALUES (?, ?, ?, ?, ?)";
+          PreparedStatement registerQuery = con.prepareStatement(
+            "INSERT INTO Author (author_lname, " +
             "author_fname, author_address, author_affiliation, author_email) " +
-            "VALUES (?, ?, ?, ?, ?)";
-          PreparedStatement registerQuery = con.prepareStatement(insertQuery);
-          String fName = a.next();
-          String lName = a.next();
+            "VALUES (?, ?, ?, ?, ?)");
+          String fName = s.next();
+          String lName = s.next();
           System.out.println("Welcome, " + fName + " " + lName + "!");
           registerQuery.setString(1, lName);
           registerQuery.setString(2, fName);
           System.out.print("Please enter a mailing address: ");
-          registerQuery.setString(3, a.next());
+          registerQuery.setString(3, s.next());
           System.out.print("Please enter an email address: ");
-          registerQuery.setString(4, a.next());
+          registerQuery.setString(4, s.next());
           System.out.print("Please enter an affiliation: ");
-          registerQuery.setString(5, a.next());
+          registerQuery.setString(5, s.next());
           registerQuery.executeUpdate();
 
           Statement getAuthorID = con.createStatement();
@@ -101,13 +108,16 @@ public class mysqldb {
           if (authorID.next()) {
             System.out.println("Your author ID is " + authorID.getObject(1));
             completed = true;
-          } else {
-            System.out.println("Error. Please try again.");
           }
-        } else if (action.equals("login")) {
+          else {
+            System.out.println("Error. Please try again.\n\n");
+            authorHelp();
+          }
+        }
+        else if (action.equals("login")) {
           PreparedStatement loginQuery = con.prepareStatement(
             "SELECT * FROM Author WHERE author_id = ?");
-          loginQuery.setInt(1, Integer.parseInt(a.next()));
+          loginQuery.setInt(1, Integer.parseInt(s.next()));
           ResultSet result = loginQuery.executeQuery();
           if (!result.next()) {
             System.out.println("That ID is invalid. Please try again.");
@@ -117,26 +127,34 @@ public class mysqldb {
               result.getString("author_lname") + "!");
             completed = true;
           }
-        } else {
-          System.out.println("That command is invalid.");
-          System.out.println("\n\n");
+        }
+        else if (action.equals("quit")) {
+          completed = true;
+        }
+        else {
+          System.out.println("That command is invalid.\n\n");
           authorHelp();
         }
       }
-    } catch (SQLException e) {
+    }
+    catch (SQLException e) {
       e.printStackTrace();
       System.out.println("Seems like there were errors with your syntax. " +
-        "Please try again. Remember: fill out every field!");
-      System.out.println("\n\n");
-      handleAuthor(con);
-    } catch (Exception e) {
+        "Please try again. Remember: fill out every field!\n\n");
+      authorHelp();
+    }
+    catch (Exception e) {
       e.printStackTrace();
       System.out.println("Seems like there was a system error. " +
-        "Please try again.");
-      System.out.println("\n\n");
-      handleAuthor(con);
+        "Please try again.\n\n");
+      authorHelp();
+    }
+    finally {
+      s.close();
     }
   }
+
+  public static void handleAuthorLogged
 
   /*
   handleEditor() - handle registering or logging in when in Editor mode
