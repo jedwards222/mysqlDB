@@ -233,7 +233,101 @@ public class mysqldb {
 
   public static void handleEditorLoggedIn(Connection con, int id) {
     System.out.println("\nType 'help' for possible commands");
+    Scanner s = new Scanner(System.in);
+    boolean finished = false;
+    while (!finished) {
+      try {
+        String action = s.next();
+        switch (action) {
+          case "status":
+            editorStatus(con);
+            break;
+          case "assign":
+            int manID = s.nextInt();
+            int revID = s.nextInt();
 
+            // Check that the manuscript has a valid status
+            PreparedStatement statusQuery = con.prepareStatement(
+              "SELECT manuscript_status FROM Manuscript WHERE manuscript_id = ?");
+            statusQuery.setInt(1, manID);
+            ResultSet statusRes = statusQuery.executeQuery();
+            if (!statusRes.next()) {
+              System.out.println("ERROR: invalid manID");
+            }
+            else {
+              String status = statusRes.getObject(1).toString();
+              if (status.equals("Submitted") || status.equals("UnderReview")) {
+                // Check that the reviewer's aoi code matches that of the manuscript
+                PreparedStatement assignQuery = con.prepareStatement(
+                  "SELECT aoi_ri_code FROM Manuscript WHERE manuscript_id = ? AND aoi_ri_code IN "
+                  + "(SELECT aoi_ri_code FROM Reviewer_aoi WHERE reviewer_id = ?)");
+                assignQuery.setInt(1, manID);
+                assignQuery.setInt(2, revID);
+                ResultSet res = assignQuery.executeQuery();
+
+                if (res.next()) { // valid reviewer
+                  // create the review
+                  PreparedStatement assignUpdate = con.prepareStatement(
+                    "INSERT INTO Review (manuscript_id, reviewer_id, review_date_sent) "
+                    + "VALUES (?, ?, NOW())");
+                  assignUpdate.setInt(1, manID);
+                  assignUpdate.setInt(2, revID);
+                  assignUpdate.executeUpdate();
+
+                  // update the manuscript's status
+                  PreparedStatement statusUpdate = con.prepareStatement(
+                    "UPDATE Manuscript SET manuscript_status = \"UnderReview\" "
+                    + "WHERE manuscript_id = ?");
+                  statusUpdate.setInt(1, manID);
+                  statusUpdate.executeUpdate();
+                }
+                else {
+                  System.out.println("That reviewer has no experience in the given "
+                                + "manuscript's subject. Try a different reviewer");
+                }
+              }
+              else {
+                System.out.println("ERROR: Manuscript is not in valid state");
+              }
+            }
+            break;
+          case "reject":
+            PreparedStatement rejectQuery = con.prepareStatement(
+              "UPDATE Manuscript SET manuscript_status = \"Rejected\", manuscript_update_date = NOW() WHERE manuscript_id = ?");
+            rejectQuery.setInt(1, s.nextInt());
+            rejectQuery.executeUpdate();
+            break;
+          case "accept":
+            PreparedStatement acceptQuery = con.prepareStatement(
+              "UPDATE Manuscript SET manuscript_status = \"Accepted\", manuscript_update_date = NOW() WHERE manuscript_id = ?");
+            acceptQuery.setInt(1, s.nextInt());
+            acceptQuery.executeUpdate();
+            break;
+          case "typeset":
+            break;
+          case "schedule":
+            break;
+          case "publish":
+            break;
+          case "logout":
+            finished = true;
+            break;
+          case "help":
+            editorLoggedInHelp();
+            break;
+          default:
+            System.out.println("ERROR: Invalid command");
+            editorLoggedInHelp();
+            break;
+        }
+      }
+      catch (SQLException exception) {
+        exception.printStackTrace();
+      }
+      finally {
+        s.close();
+      }
+    }
   }
 
 
