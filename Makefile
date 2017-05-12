@@ -2,14 +2,15 @@
 #
 # James Edwards and Shashwat Chaturvedi, May 2017
 
-CLASSPATHJ=/Users/James/Documents/Dartmouth/3rd\ Year/17S/CS61/mysqlDB/mysql-connector-java.jar
+CLASSPATHJ=.:/Users/James/Desktop/mysql-connector-java-5.1.42-bin.jar
+# Define a path for yourself, Shash: CLASSPATHS=...
 
 make:
 	javac mysqldb.java
 
 run:
-	# java -cp $(CLASSPATHJ) mysqldb
-	java mysqldb
+	java -classpath $(CLASSPATHJ) mysqldb
+	# java -classpath $(CLASSPATHS) mysqldb
 
 clean:
 	rm -f *.class

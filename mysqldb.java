@@ -8,8 +8,8 @@ import java.sql.*;
 
 public class mysqldb {
   public static final String SERVER   = "jdbc:mysql://sunapee.cs.dartmouth.edu/";
-  public static final String USERNAME = "ccpalmer";
-  public static final String PASSWORD = "bug7!Ear23m";
+  public static final String USERNAME = "user"; // Fill in with credentials
+  public static final String PASSWORD = "pass"; // Fill in with credentials
   public static final String DATABASE = "cs61";
   public static final String QUERY    = "SELECT * FROM instructor;";
 
