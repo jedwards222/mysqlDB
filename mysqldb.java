@@ -6,7 +6,6 @@
  */
 import java.sql.*;
 import java.util.Scanner;
-import java.util.regex.*;
 
 public class mysqldb {
   public static final String SERVER   = "jdbc:mysql://sunapee.cs.dartmouth.edu/";
@@ -24,10 +23,10 @@ public class mysqldb {
 		// attempt to connect to db
 		try {
 		    // load mysql driver
-		    // Class.forName("com.mysql.jdbc.Driver").newInstance();
+		    Class.forName("com.mysql.jdbc.Driver").newInstance();
 
 		    // initialize connection
-		    // con = DriverManager.getConnection(SERVER+DATABASE, USERNAME, PASSWORD);
+		    con = DriverManager.getConnection(SERVER+DATABASE, USERNAME, PASSWORD);
 
         Scanner s = new Scanner(System.in);
         // Prompt user to indicate whether they are author/editor/reviewer
@@ -86,9 +85,9 @@ public class mysqldb {
 		} finally {
 		  // cleanup
 		  try {
-  			// con.close();
-  			// stmt.close();
-  			// res.close();
+  			con.close();
+  			stmt.close();
+  			res.close();
   			System.out.print("\nConnection terminated.\n");
 	    } catch (Exception e) { /* ignore cleanup errors */ }
 		}
@@ -121,8 +120,6 @@ public class mysqldb {
     while (!finished) {
       String action = e.next();
       int id;
-      // Pattern p = Pattern.compile("");
-      // Matcher m = p.matcher("as");
       if (action.equals("register")) {
         // read fname and lname, ensure no errors, create user in DB
         String fname = e.next();
@@ -136,15 +133,21 @@ public class mysqldb {
         // query db and save results
         ResultSet res = stmt.executeQuery(query);
 
-        // check result? user is now logged in?
+        // TODO: check result? user is now logged in?
+        // how do we know which ID this editor now has?
 
       } else if (action.equals("login")) {
         id = e.nextInt();
-        if (!validId(con, 'e', id)) {
+        ResultSet res = validId(con, 'e', id);
+        if (res.next().equals(NULL)) {
           System.out.println("Invalid ID");
           return;
         } else {
           // USER IS LOGGED IN - show them their stuff
+          System.out.print(res.getObject(1)); // editor first name
+          System.out.println(res.getObject(2)); // editor last name
+          // Query for editor's manuscripts
+          System.out.println()
         }
       } else {
         System.out.println("Invalid command");
@@ -176,8 +179,10 @@ public class mysqldb {
   /*
     validId constructs a query to check if the given user exists in the db
     Returns true if user exists, otherwise returns false
+
+    Maybe should return
   */
-  public static boolean validId(Connection con, char mode, int id) {
+  public static ResultSet validId(Connection con, char mode, int id) {
     if (id < 0) {
       return false;
     }
@@ -198,7 +203,19 @@ public class mysqldb {
     // initialize a query statement
     Statement stmt = con.createStatement();
     // query db and save results
-    ResultSet res = stmt.executeQuery(query);
-    return (res.next()); // true if valid ID
+    ResultSet ret stmt.executeQuery(query);
+    stmt.close();
+    res.close();
+    return ret;
   }
+
+
+  /*
+    Returns the status of manuscripts associated with the given user
+    Prints to stdout and returns nothing
+  */
+  public static void status(Connection con, char mode, int id) {
+
+  }
+
 }
