@@ -69,18 +69,72 @@ public class mysqldb {
   }
 
   public static void handleAuthor(Connection con) {
-    System.out.println("You are in AUTHOR Mode.\nPlease register or login");
+    System.out.println("You are in AUTHOR Mode.\nPlease register or login.");
+    authorHelp();
     Scanner a = new Scanner(System.in);
-    String action = a.next();
-    // Pattern p = Pattern.compile("");
-    // Matcher m = p.matcher("as");
-    if (action.equals("register")) {
+    boolean completed = false;
+    try {
+      while (!completed) {
+        System.out.print("Command: ");
+        String action = a.next();
+        if (action.equals("register")) {
+          String insertQuery = "INSERT INTO Author (author_lname, " +
+            "author_fname, author_address, author_affiliation, author_email) " +
+            "VALUES (?, ?, ?, ?, ?)";
+          PreparedStatement registerQuery = con.prepareStatement(insertQuery);
+          String fName = a.next();
+          String lName = a.next();
+          System.out.println("Welcome, " + fName + " " + lName + "!");
+          registerQuery.setString(1, lName);
+          registerQuery.setString(2, fName);
+          System.out.print("Please enter a mailing address: ");
+          registerQuery.setString(3, a.next());
+          System.out.print("Please enter an email address: ");
+          registerQuery.setString(4, a.next());
+          System.out.print("Please enter an affiliation: ");
+          registerQuery.setString(5, a.next());
+          registerQuery.executeUpdate();
 
-    } else if (action.equals("login")) {
-
-    } else {
-      System.out.println("Invalid command");
-      return; // probably want better error handling...
+          Statement getAuthorID = con.createStatement();
+          ResultSet authorID =
+            getAuthorID.executeQuery("SELECT LAST_INSERT_ID()");
+          if (authorID.next()) {
+            System.out.println("Your author ID is " + authorID.getObject(1));
+            completed = true;
+          } else {
+            System.out.println("Error. Please try again.");
+          }
+        } else if (action.equals("login")) {
+          PreparedStatement loginQuery = con.prepareStatement(
+            "SELECT * FROM Author WHERE author_id = ?");
+          loginQuery.setInt(1, Integer.parseInt(a.next()));
+          ResultSet result = loginQuery.executeQuery();
+          if (!result.next()) {
+            System.out.println("That ID is invalid. Please try again.");
+          } else {
+            System.out.println("Welcome " +
+              result.getString("author_fname") + " " +
+              result.getString("author_lname") + "!");
+            completed = true;
+          }
+        } else {
+          System.out.println("That command is invalid.");
+          System.out.println("\n\n");
+          authorHelp();
+        }
+      }
+    } catch (SQLException e) {
+      e.printStackTrace();
+      System.out.println("Seems like there were errors with your syntax. " +
+        "Please try again. Remember: fill out every field!");
+      System.out.println("\n\n");
+      handleAuthor(con);
+    } catch (Exception e) {
+      e.printStackTrace();
+      System.out.println("Seems like there was a system error. " +
+        "Please try again.");
+      System.out.println("\n\n");
+      handleAuthor(con);
     }
   }
 
@@ -234,7 +288,7 @@ public class mysqldb {
     System.out.println("-----------------------Author Commands-----------------------");
     System.out.println("Note: some commands will prompt user for further input after the initial command");
     System.out.format("%-40s", "Register as a new user: ");
-    System.out.println("register <fname> <lname> <email>");
+    System.out.println("register <fname> <lname>");
     System.out.format("%-40s","Login as a returning user:");
     System.out.println("login <id>");
     System.out.format("%-40s","Submit a manuscript: ");
@@ -259,6 +313,7 @@ public class mysqldb {
     System.out.println("status");
     System.out.format("%-40s","Conduct a review: ");
     System.out.println("review <manuscript_id>");
+  }
 
   /*
     Prints the query in a table format
