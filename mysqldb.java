@@ -249,6 +249,9 @@ public class mysqldb {
     System.out.println("register <fname> <lname>");
     System.out.format("%-40s","Login as a returning user:");
     System.out.println("login <id>");
+  }
+  public static void editorLoggedInHelp() {
+    System.out.println("---------------Authorized Editor Commands---------------");
     System.out.format("%-40s","See status of your manuscripts: ");
     System.out.println("status");
     System.out.format("%-40s","Assign a manuscript to a reviewer: ");
@@ -270,9 +273,13 @@ public class mysqldb {
     System.out.println("-----------------------Author Commands-----------------------");
     System.out.println("Note: some commands will prompt user for further input after the initial command");
     System.out.format("%-40s", "Register as a new user: ");
-    System.out.println("register <fname> <lname> <email>");
+    System.out.println("register <fname> <lname>");
     System.out.format("%-40s","Login as a returning user:");
     System.out.println("login <id>");
+  }
+  public static void authorLoggedInHelp() {
+    System.out.println("---------------Authorized Author Commands---------------");
+    System.out.println("Note: some commands will prompt user for further input after the initial command");
     System.out.format("%-40s","Submit a manuscript: ");
     System.out.println("submit <title> <author_affiliation> <ri_code>");
     System.out.format("%-40s","See status of submitted manuscripts:");
@@ -291,6 +298,10 @@ public class mysqldb {
     System.out.println("login <id>");
     System.out.format("%-40s","Resign as user: ");
     System.out.println("resign <id>");
+  }
+  public static void reviewerLoggedInHelp() {
+    System.out.println("---------------Authorized Reviewer Commands---------------");
+    System.out.println("Note: some commands will prompt user for further input after the initial command");
     System.out.format("%-40s","See status of current reviewed manuscripts:");
     System.out.println("status");
     System.out.format("%-40s","Conduct a review: ");
