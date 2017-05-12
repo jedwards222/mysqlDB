@@ -27,25 +27,28 @@ public class mysqldb {
 		    // initialize connection
 		    con = DriverManager.getConnection(SERVER+DATABASE, USERNAME, PASSWORD);
 
-		    System.out.println("Connection established.");
+        // 1. Prompt user to sign in/ sign up
 
+        // 2. Handle user differently depending on if they are E/R/A
+          // a different handler function for each of them?
+
+        // 3. come back to main once a user signs out and let main close the connection
+
+
+        /* This code is a good example, but not to be used by our program
+        System.out.println("Connection established.");
 		    // initialize a query statement
 		    stmt = con.createStatement();
-
 		    // query db and save results
 		    res = stmt.executeQuery(QUERY);
-
 		    System.out.format("Query executed: '%s'\n\nResults:\n", QUERY);
-
 		    // the result set contains metadata
 		    numColumns = res.getMetaData().getColumnCount();
-
 		    // print table header
 		    for(int i = 1; i <= numColumns; i++) {
 				System.out.format("%-12s", res.getMetaData().getColumnName(i));
 		    }
 		    System.out.println("\n--------------------------------------------");
-
 		    // iterate through results
 		    while(res.next()) {
 				for(int i = 1; i <= numColumns; i++) {
@@ -53,6 +56,8 @@ public class mysqldb {
 				}
 				System.out.println("");
 		    }
+        */
+
 		} catch (SQLException e ) {          // catch SQL errors
 		    System.err.format("SQL Error: %s", e.getMessage());
 		} catch (Exception e) {              // anything else
