@@ -1,9 +1,8 @@
 /*
   Lab 2e
   James Edwards and Shashwat Chaturvedi
-
-
  */
+
 import java.sql.*;
 import java.util.Scanner;
 
@@ -117,42 +116,50 @@ public class mysqldb {
     System.out.println("You are in EDITOR Mode.\nPlease register or login");
     Scanner e = new Scanner(System.in);
     boolean finished = false;
-    while (!finished) {
-      String action = e.next();
-      int id;
-      if (action.equals("register")) {
-        // read fname and lname, ensure no errors, create user in DB
-        String fname = e.next();
-        String lname = e.next();
-        // Error detection?
+    try {
+      while (!finished) {
+        String action = e.next();
+        int id;
+        if (action.equals("register")) {
+          // read fname and lname, ensure no errors, create user in DB
+          String fname = e.next();
+          String lname = e.next();
+          // Error detection?
 
-        String query = "INSERT INTO Editor (editor_lname, editor_fname) VALUES";
-        query += ("(" + lname + "," + fname + ");");
-        // initialize a query statement
-        Statement stmt = con.createStatement();
-        // query db and save results
-        ResultSet res = stmt.executeQuery(query);
+          String query = "INSERT INTO Editor (editor_lname, editor_fname) VALUES";
+          query += ("(" + lname + "," + fname + ");");
+          // initialize a query statement
+          Statement stmt = con.createStatement();
+          // query db and save results
+          ResultSet res = stmt.executeQuery(query);
 
-        // TODO: check result? user is now logged in?
-        // how do we know which ID this editor now has?
+          // TODO: check result? user is now logged in?
+          // how do we know which ID this editor now has?
 
-      } else if (action.equals("login")) {
-        id = e.nextInt();
-        ResultSet res = validId(con, 'e', id);
-        if (res.next().equals(NULL)) {
-          System.out.println("Invalid ID");
-          return;
+        } else if (action.equals("login")) {
+          id = e.nextInt();
+          ResultSet res = validId(con, 'e', id);
+          if (!res.next()) {
+            System.out.println("Invalid ID");
+            return;
+          } else {
+            // USER IS LOGGED IN - show them their stuff
+            System.out.print(res.getObject(1)); // editor first name
+            System.out.println(res.getObject(2)); // editor last name
+            // Query for editor's manuscripts
+            System.out.println();
+          }
         } else {
-          // USER IS LOGGED IN - show them their stuff
-          System.out.print(res.getObject(1)); // editor first name
-          System.out.println(res.getObject(2)); // editor last name
-          // Query for editor's manuscripts
-          System.out.println()
+          System.out.println("Invalid command");
+          return; // probably want better error handling...
         }
-      } else {
-        System.out.println("Invalid command");
-        return; // probably want better error handling...
       }
+    }
+    catch (SQLException exception) {
+      exception.printStackTrace();
+    }
+    finally {
+      e.close();
     }
   }
 
@@ -184,7 +191,7 @@ public class mysqldb {
   */
   public static ResultSet validId(Connection con, char mode, int id) {
     if (id < 0) {
-      return false;
+      return null;
     }
     // Do SQL query
     String query = "SELECT * FROM ";
@@ -200,13 +207,26 @@ public class mysqldb {
         break;
     }
     query += id;
-    // initialize a query statement
-    Statement stmt = con.createStatement();
-    // query db and save results
-    ResultSet ret stmt.executeQuery(query);
-    stmt.close();
-    res.close();
-    return ret;
+    Statement stmt = null;
+    ResultSet res = null;
+    try {
+      // initialize a query statement
+      stmt = con.createStatement();
+      // query db and save results
+      res = stmt.executeQuery(query);
+      return res;
+    }
+    catch (Exception e) {
+      e.printStackTrace();
+      return null;
+    }
+    finally {
+      try {
+        stmt.close();
+        res.close();
+      }
+      catch (Exception e) { }
+    }
   }
 
 
