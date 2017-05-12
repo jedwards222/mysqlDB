@@ -11,3 +11,5 @@ Run `make` to compile the java source code, and `make run` to run the resulting 
 Run `make clean` to remove the executable and object file created by compilation.
 
 ### Assumptions/Limitations
+
+1. User input is enforced rigidly to conform to the instructions (case sensitive).
