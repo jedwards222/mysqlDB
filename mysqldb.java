@@ -156,16 +156,25 @@ public class mysqldb {
           String lname = e.next();
           // Error detection?
 
+          // Insert new editor
           String query = "INSERT INTO Editor (editor_lname, editor_fname) VALUES";
-          query += ("(" + lname + "," + fname + ");");
-          // initialize a query statement
+          query += (" (\"" + lname + "\", \"" + fname + "\");");
           Statement stmt = con.createStatement();
-          // query db and save results
-          ResultSet res = stmt.executeQuery(query);
+          stmt.executeUpdate(query);
 
-          // TODO: check result? user is now logged in?
-          // how do we know which ID this editor now has?
-
+          // Get new editor's ID
+          ResultSet res = stmt.executeQuery("SELECT LAST_INSERT_ID()");
+          int lastId = -1;
+          if (res.next()) {
+            lastId = res.getInt(1);
+          } else {
+            System.out.println("Error getting ID");
+            return;
+          }
+          System.out.print("Welcome " + fname + " " + lname + "! ");
+          System.out.println("Your userID is: " + lastId);
+          handleEditorLoggedIn(con, lastId); // separate function for logged in use
+          return; // The editor has logged out and should return to the main menu
         } else if (action.equals("login")) {
           id = e.nextInt();
           ResultSet res = validId(con, 'e', id);
@@ -173,10 +182,16 @@ public class mysqldb {
             System.out.println("Invalid ID");
             return;
           } else {
-            printQuery(null, res);
-            // USER IS LOGGED IN - show them their stuff
-            // Query for editor's manuscripts
-            System.out.println();
+            // Send welcome message
+            String lname = res.getObject(2).toString();
+            String fname = res.getObject(3).toString();
+            System.out.println("Welcome " + fname + " " + lname + "! ");
+
+            // Print out status of manuscripts
+            editorStatus(con);
+
+            handleEditorLoggedIn(con, id);
+            return; // The editor has logged out and should return to the main menu
           }
         } else {
           System.out.println("Invalid command");
@@ -190,6 +205,27 @@ public class mysqldb {
     finally {
       e.close();
     }
+  }
+
+  public static void editorStatus(Connection con) {
+    try {
+      String query = "SELECT manuscript_id, manuscript_title, "
+              + "manuscript_update_date, manuscript_status, author_id, editor_id "
+              + "FROM Manuscript ORDER BY manuscript_status, manuscript_id";
+      Statement stmt = con.createStatement();
+      ResultSet res = stmt.executeQuery(query);
+      printQuery(query, res);
+      res.close();
+      stmt.close();
+    }
+    catch (SQLException e) {
+      e.printStackTrace();
+    }
+  }
+
+  public static void handleEditorLoggedIn(Connection con, int id) {
+    System.out.println("\nType 'help' for possible commands");
+
   }
 
 
