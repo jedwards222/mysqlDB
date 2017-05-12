@@ -2,7 +2,7 @@
 #
 # James Edwards and Shashwat Chaturvedi, May 2017
 
-CLASSPATHJ=.:/Users/James/Desktop/mysql-connector-java-5.1.42-bin.jar
+CLASSPATHJ=.:/Users/Shashwat/Desktop/mysql-connector-java-5.1.42-bin.jar
 # Define a path for yourself, Shash: CLASSPATHS=...
 
 make:
