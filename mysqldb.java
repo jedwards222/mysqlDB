@@ -238,4 +238,59 @@ public class mysqldb {
 
   }
 
+  /* Help output for user listing editor commands */
+  public static void editorHelp() {
+    System.out.println("-----------------------Editor Commands-----------------------");
+    System.out.format("%-40s", "Register as a new user: ");
+    System.out.println("register <fname> <lname>");
+    System.out.format("%-40s","Login as a returning user:");
+    System.out.println("login <id>");
+    System.out.format("%-40s","See status of your manuscripts: ");
+    System.out.println("status");
+    System.out.format("%-40s","Assign a manuscript to a reviewer: ");
+    System.out.println("assign <manuscript_id> <reviewer_id>");
+    System.out.format("%-40s","Reject a manuscript: ");
+    System.out.println("reject <manuscript_id>");
+    System.out.format("%-40s","Accept a manuscript: ");
+    System.out.println("accept <manuscript_id>");
+    System.out.format("%-40s","Typeset a manuscript: ");
+    System.out.println("typeset <manuscript_id> <num_pages>");
+    System.out.format("%-40s","Schedule a manuscript: ");
+    System.out.println("schedule <manuscript_id> <issue_id>");
+    System.out.format("%-40s","Publish an issue: ");
+    System.out.println("publish <issue_id>");
+  }
+
+  /* Help output for user listing author commands */
+  public static void authorHelp() {
+    System.out.println("-----------------------Author Commands-----------------------");
+    System.out.println("Note: some commands will prompt user for further input after the initial command");
+    System.out.format("%-40s", "Register as a new user: ");
+    System.out.println("register <fname> <lname> <email>");
+    System.out.format("%-40s","Login as a returning user:");
+    System.out.println("login <id>");
+    System.out.format("%-40s","Submit a manuscript: ");
+    System.out.println("submit <title> <author_affiliation> <ri_code>");
+    System.out.format("%-40s","See status of submitted manuscripts:");
+    System.out.println("status");
+    System.out.format("%-40s","Retract a manuscript: ");
+    System.out.println("retract <manuscript_id>");
+  }
+
+  /* Help output for user listing reviewer commands */
+  public static void reviewerHelp() {
+    System.out.println("-----------------------Reviewer Commands-----------------------");
+    System.out.println("Note: some commands will prompt user for further input after the initial command");
+    System.out.format("%-40s", "Register as a new user: ");
+    System.out.println("register <fname> <lname> <email>");
+    System.out.format("%-40s","Login as a returning user:");
+    System.out.println("login <id>");
+    System.out.format("%-40s","Resign as user: ");
+    System.out.println("resign <id>");
+    System.out.format("%-40s","See status of current reviewed manuscripts:");
+    System.out.println("status");
+    System.out.format("%-40s","Conduct a review: ");
+    System.out.println("review <manuscript_id>");
+  }
+
 }
