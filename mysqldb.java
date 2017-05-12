@@ -8,10 +8,10 @@ import java.util.Scanner;
 
 public class mysqldb {
   public static final String SERVER   = "jdbc:mysql://sunapee.cs.dartmouth.edu/";
-  public static final String USERNAME = "user"; // Fill in with credentials
-  public static final String PASSWORD = "pass"; // Fill in with credentials
-  public static final String DATABASE = "cs61";
-  public static final String QUERY    = "SELECT * FROM instructor;";
+  public static final String USERNAME = "cshashwat"; // Fill in with credentials
+  public static final String PASSWORD = "riderevent78"; // Fill in with credentials
+  public static final String DATABASE = "cshashwat_db";
+  public static final String QUERY    = "SELECT * FROM Author;";
 
   public static void main(String[] args) {
 		Connection con = null;
@@ -52,30 +52,6 @@ public class mysqldb {
           }
 
         // Come back to main once a user signs out and let main close the connection
-
-
-        /* This code is a good example, but not to be used by our program
-        System.out.println("Connection established.");
-		    // initialize a query statement
-		    stmt = con.createStatement();
-		    // query db and save results
-		    res = stmt.executeQuery(QUERY);
-		    System.out.format("Query executed: '%s'\n\nResults:\n", QUERY);
-		    // the result set contains metadata
-		    numColumns = res.getMetaData().getColumnCount();
-		    // print table header
-		    for(int i = 1; i <= numColumns; i++) {
-				System.out.format("%-12s", res.getMetaData().getColumnName(i));
-		    }
-		    System.out.println("\n--------------------------------------------");
-		    // iterate through results
-		    while(res.next()) {
-				for(int i = 1; i <= numColumns; i++) {
-          System.out.format("%-12s", res.getObject(i));
-				}
-				System.out.println("");
-		    }
-        */
     //
 		} catch (SQLException e ) {          // catch SQL errors
 		    System.err.format("SQL Error: %s", e.getMessage());
@@ -143,9 +119,8 @@ public class mysqldb {
             System.out.println("Invalid ID");
             return;
           } else {
+            printQuery(null, res);
             // USER IS LOGGED IN - show them their stuff
-            System.out.print(res.getObject(1)); // editor first name
-            System.out.println(res.getObject(2)); // editor last name
             // Query for editor's manuscripts
             System.out.println();
           }
@@ -220,13 +195,6 @@ public class mysqldb {
       e.printStackTrace();
       return null;
     }
-    finally {
-      try {
-        stmt.close();
-        res.close();
-      }
-      catch (Exception e) { }
-    }
   }
 
 
@@ -291,6 +259,32 @@ public class mysqldb {
     System.out.println("status");
     System.out.format("%-40s","Conduct a review: ");
     System.out.println("review <manuscript_id>");
+
+  /*
+    Prints the query in a table format
+  */
+  public static void printQuery(String query, ResultSet res) {
+    // don't need to print query
+    if (query != null) {
+      System.out.format("Query executed: '%s'\n\nResults:\n", query);
+    }
+    try {
+      int numColumns = res.getMetaData().getColumnCount();
+      for(int i = 1; i <= numColumns; i++) {
+        System.out.format("%-20s", res.getMetaData().getColumnName(i));
+      }
+      System.out.println("\n-------------------------------------------------");
+      res.beforeFirst();
+      while (res.next()) {
+        for (int i = 1; i <= numColumns; i++) {
+          System.out.format("%-20s", res.getObject(i));
+        }
+        System.out.println("");
+      }
+    }
+    catch (SQLException e) {
+      e.printStackTrace();
+    }
   }
 
 }
