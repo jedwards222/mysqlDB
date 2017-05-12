@@ -100,9 +100,9 @@ public class mysqldb {
     String action = a.next();
     // Pattern p = Pattern.compile("");
     // Matcher m = p.matcher("as");
-    if (action == "register") {
+    if (action.equals("register")) {
 
-    } else if (action == "login") {
+    } else if (action.equals("login")) {
 
     } else {
       System.out.println("Invalid command");
@@ -123,7 +123,7 @@ public class mysqldb {
       int id;
       // Pattern p = Pattern.compile("");
       // Matcher m = p.matcher("as");
-      if (action == "register") {
+      if (action.equals("register")) {
         // read fname and lname, ensure no errors, create user in DB
         String fname = e.next();
         String lname = e.next();
@@ -138,7 +138,7 @@ public class mysqldb {
 
         // check result? user is now logged in?
 
-      } else if (action == "login") {
+      } else if (action.equals("login")) {
         id = e.nextInt();
         if (!validId(con, 'e', id)) {
           System.out.println("Invalid ID");
@@ -161,11 +161,11 @@ public class mysqldb {
     String action = r.next();
     // Pattern p = Pattern.compile("");
     // Matcher m = p.matcher("as");
-    if (action == "register") {
+    if (action.equals("register")) {
 
-    } else if (action == "login") {
+    } else if (action.equals("login")) {
 
-    } else if (action == "resign") {
+    } else if (action.equals("resign")) {
 
     } else {
       System.out.println("Invalid command");
