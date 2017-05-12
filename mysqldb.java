@@ -191,6 +191,7 @@ public class mysqldb {
             editorStatus(con);
 
             handleEditorLoggedIn(con, id);
+            finished = true;
             return; // The editor has logged out and should return to the main menu
           }
         } else {
@@ -303,6 +304,8 @@ public class mysqldb {
     System.out.println("register <fname> <lname>");
     System.out.format("%-40s","Login as a returning user:");
     System.out.println("login <id>");
+    System.out.format("%-40s","Return to main menu:");
+    System.out.println("quit");
   }
   public static void editorLoggedInHelp() {
     System.out.println("---------------Authorized Editor Commands---------------");
@@ -320,6 +323,8 @@ public class mysqldb {
     System.out.println("schedule <manuscript_id> <issue_id>");
     System.out.format("%-40s","Publish an issue: ");
     System.out.println("publish <issue_id>");
+    System.out.format("%-40s","Return to main menu:");
+    System.out.println("logout");
   }
 
   /* Help output for user listing author commands */
@@ -330,6 +335,8 @@ public class mysqldb {
     System.out.println("register <fname> <lname>");
     System.out.format("%-40s","Login as a returning user:");
     System.out.println("login <id>");
+    System.out.format("%-40s","Return to main menu:");
+    System.out.println("quit");
   }
   public static void authorLoggedInHelp() {
     System.out.println("---------------Authorized Author Commands---------------");
@@ -340,6 +347,8 @@ public class mysqldb {
     System.out.println("status");
     System.out.format("%-40s","Retract a manuscript: ");
     System.out.println("retract <manuscript_id>");
+    System.out.format("%-40s","Return to main menu:");
+    System.out.println("logout");
   }
 
   /* Help output for user listing reviewer commands */
@@ -352,6 +361,8 @@ public class mysqldb {
     System.out.println("login <id>");
     System.out.format("%-40s","Resign as user: ");
     System.out.println("resign <id>");
+    System.out.format("%-40s","Return to main menu:");
+    System.out.println("quit");
   }
   public static void reviewerLoggedInHelp() {
     System.out.println("---------------Authorized Reviewer Commands---------------");
@@ -360,6 +371,8 @@ public class mysqldb {
     System.out.println("status");
     System.out.format("%-40s","Conduct a review: ");
     System.out.println("review <manuscript_id>");
+    System.out.format("%-40s","Return to main menu:");
+    System.out.println("logout");
   }
 
   /*
