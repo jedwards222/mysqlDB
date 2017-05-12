@@ -161,17 +161,18 @@ public class mysqldb {
   Return when error detected in user input
   */
   public static void handleEditor(Connection con) {
-    System.out.println("You are in EDITOR Mode.\nPlease register or login");
-    Scanner e = new Scanner(System.in);
+    System.out.println("You are in EDITOR Mode.\nPlease register or login.");
+    System.out.println("Type 'help' for list of commands.");
+    Scanner s = new Scanner(System.in);
     boolean finished = false;
     try {
       while (!finished) {
-        String action = e.next();
+        String action = s.next();
         int id;
         if (action.equals("register")) {
           // read fname and lname, ensure no errors, create user in DB
-          String fname = e.next();
-          String lname = e.next();
+          String fname = s.next();
+          String lname = s.next();
           // Error detection?
 
           // Insert new editor
@@ -185,20 +186,20 @@ public class mysqldb {
           int lastId = -1;
           if (res.next()) {
             lastId = res.getInt(1);
-          } else {
-            System.out.println("Error getting ID");
-            return;
+            System.out.print("Welcome " + fname + " " + lname + "! ");
+            System.out.println("Your userID is: " + lastId);
+            handleEditorLoggedIn(con, lastId); // separate function for logged in use
+            finished = true;
           }
-          System.out.print("Welcome " + fname + " " + lname + "! ");
-          System.out.println("Your userID is: " + lastId);
-          handleEditorLoggedIn(con, lastId); // separate function for logged in use
-          return; // The editor has logged out and should return to the main menu
-        } else if (action.equals("login")) {
-          id = e.nextInt();
+          else {
+            System.out.println("ERROR: SQL problem getting ID");
+          }
+        }
+        else if (action.equals("login")) {
+          id = s.nextInt();
           ResultSet res = validId(con, 'e', id);
           if (!res.next()) {
-            System.out.println("Invalid ID");
-            return;
+            System.out.println("ERROR: Invalid ID");
           } else {
             // Send welcome message
             String lname = res.getObject(2).toString();
@@ -209,11 +210,18 @@ public class mysqldb {
             editorStatus(con);
 
             handleEditorLoggedIn(con, id);
-            return; // The editor has logged out and should return to the main menu
+            finished = true;
           }
-        } else {
-          System.out.println("Invalid command");
-          return; // probably want better error handling...
+        }
+        else if (action.equals("help")) {
+          editorHelp();
+        }
+        else if (action.equals("quit")) {
+          finished = true;
+        }
+        else {
+          System.out.println("ERROR: Invalid command");
+          editorHelp();
         }
       }
     }
@@ -221,7 +229,7 @@ public class mysqldb {
       exception.printStackTrace();
     }
     finally {
-      e.close();
+      s.close();
     }
   }
 
@@ -321,6 +329,11 @@ public class mysqldb {
     System.out.println("register <fname> <lname>");
     System.out.format("%-40s","Login as a returning user:");
     System.out.println("login <id>");
+    System.out.format("%-40s","Return to main menu:");
+    System.out.println("quit");
+  }
+  public static void editorLoggedInHelp() {
+    System.out.println("---------------Authorized Editor Commands---------------");
     System.out.format("%-40s","See status of your manuscripts: ");
     System.out.println("status");
     System.out.format("%-40s","Assign a manuscript to a reviewer: ");
@@ -335,6 +348,8 @@ public class mysqldb {
     System.out.println("schedule <manuscript_id> <issue_id>");
     System.out.format("%-40s","Publish an issue: ");
     System.out.println("publish <issue_id>");
+    System.out.format("%-40s","Return to main menu:");
+    System.out.println("logout");
   }
 
   /* Help output for user listing author commands */
@@ -345,12 +360,20 @@ public class mysqldb {
     System.out.println("register <fname> <lname>");
     System.out.format("%-40s","Login as a returning user:");
     System.out.println("login <id>");
+    System.out.format("%-40s","Return to main menu:");
+    System.out.println("quit");
+  }
+  public static void authorLoggedInHelp() {
+    System.out.println("---------------Authorized Author Commands---------------");
+    System.out.println("Note: some commands will prompt user for further input after the initial command");
     System.out.format("%-40s","Submit a manuscript: ");
     System.out.println("submit <title> <author_affiliation> <ri_code>");
     System.out.format("%-40s","See status of submitted manuscripts:");
     System.out.println("status");
     System.out.format("%-40s","Retract a manuscript: ");
     System.out.println("retract <manuscript_id>");
+    System.out.format("%-40s","Return to main menu:");
+    System.out.println("logout");
   }
 
   /* Help output for user listing reviewer commands */
@@ -363,10 +386,18 @@ public class mysqldb {
     System.out.println("login <id>");
     System.out.format("%-40s","Resign as user: ");
     System.out.println("resign <id>");
+    System.out.format("%-40s","Return to main menu:");
+    System.out.println("quit");
+  }
+  public static void reviewerLoggedInHelp() {
+    System.out.println("---------------Authorized Reviewer Commands---------------");
+    System.out.println("Note: some commands will prompt user for further input after the initial command");
     System.out.format("%-40s","See status of current reviewed manuscripts:");
     System.out.println("status");
     System.out.format("%-40s","Conduct a review: ");
     System.out.println("review <manuscript_id>");
+    System.out.format("%-40s","Return to main menu:");
+    System.out.println("logout");
   }
 
   /*
