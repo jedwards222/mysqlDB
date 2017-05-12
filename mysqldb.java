@@ -143,17 +143,18 @@ public class mysqldb {
   Return when error detected in user input
   */
   public static void handleEditor(Connection con) {
-    System.out.println("You are in EDITOR Mode.\nPlease register or login");
-    Scanner e = new Scanner(System.in);
+    System.out.println("You are in EDITOR Mode.\nPlease register or login.");
+    System.out.println("Type 'help' for list of commands.");
+    Scanner s = new Scanner(System.in);
     boolean finished = false;
     try {
       while (!finished) {
-        String action = e.next();
+        String action = s.next();
         int id;
         if (action.equals("register")) {
           // read fname and lname, ensure no errors, create user in DB
-          String fname = e.next();
-          String lname = e.next();
+          String fname = s.next();
+          String lname = s.next();
           // Error detection?
 
           // Insert new editor
@@ -167,20 +168,20 @@ public class mysqldb {
           int lastId = -1;
           if (res.next()) {
             lastId = res.getInt(1);
-          } else {
-            System.out.println("Error getting ID");
-            return;
+            System.out.print("Welcome " + fname + " " + lname + "! ");
+            System.out.println("Your userID is: " + lastId);
+            handleEditorLoggedIn(con, lastId); // separate function for logged in use
+            finished = true;
           }
-          System.out.print("Welcome " + fname + " " + lname + "! ");
-          System.out.println("Your userID is: " + lastId);
-          handleEditorLoggedIn(con, lastId); // separate function for logged in use
-          return; // The editor has logged out and should return to the main menu
-        } else if (action.equals("login")) {
-          id = e.nextInt();
+          else {
+            System.out.println("ERROR: SQL problem getting ID");
+          }
+        }
+        else if (action.equals("login")) {
+          id = s.nextInt();
           ResultSet res = validId(con, 'e', id);
           if (!res.next()) {
-            System.out.println("Invalid ID");
-            return;
+            System.out.println("ERROR: Invalid ID");
           } else {
             // Send welcome message
             String lname = res.getObject(2).toString();
@@ -192,11 +193,17 @@ public class mysqldb {
 
             handleEditorLoggedIn(con, id);
             finished = true;
-            return; // The editor has logged out and should return to the main menu
           }
-        } else {
-          System.out.println("Invalid command");
-          return; // probably want better error handling...
+        }
+        else if (action.equals("help")) {
+          editorHelp();
+        }
+        else if (action.equals("quit")) {
+          finished = true;
+        }
+        else {
+          System.out.println("ERROR: Invalid command");
+          editorHelp();
         }
       }
     }
@@ -204,7 +211,7 @@ public class mysqldb {
       exception.printStackTrace();
     }
     finally {
-      e.close();
+      s.close();
     }
   }
 
