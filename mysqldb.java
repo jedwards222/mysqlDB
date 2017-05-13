@@ -404,6 +404,7 @@ public class mysqldb {
     }
   }
 
+  /* Outputs status of all manuscripts */
   public static void editorStatus(Connection con) {
     try {
       String query =
@@ -730,19 +731,208 @@ public class mysqldb {
   public static void handleReviewer(Connection con) {
     // Check whether they would like to login, register, or resign
     System.out.println("You are in REVIEWER Mode.\nPlease register, login, or resign");
-    Scanner r = new Scanner(System.in);
-    String action = r.next();
-    // Pattern p = Pattern.compile("");
-    // Matcher m = p.matcher("as");
-    if (action.equals("register")) {
+    System.out.println("Type 'help' for list of commands.");
+    Scanner s = new Scanner(System.in);
+    boolean finished = false;
+    try {
+      while (!finished) {
+        String action = s.next();
+        int id;
+        switch (action) {
+          case "help":
+            reviewerHelp();
+            break;
 
-    } else if (action.equals("login")) {
+          case "login":
+            id = s.nextInt();
+            ResultSet res = validId(con, 'r', id);
+            if (!res.next()) {
+              System.out.println("ERROR: Invalid ID");
+            } else {
+              // Send welcome message
+              String lname = res.getObject(2).toString();
+              String fname = res.getObject(3).toString();
+              System.out.println("Welcome " + fname + " " + lname + "! ");
 
-    } else if (action.equals("resign")) {
+              // Print out status of manuscripts
+              reviewerStatus(con, id);
 
-    } else {
-      System.out.println("Invalid command");
-      return; // probably want better error handling...
+              handleReviewerLoggedIn(con, id);
+              finished = true;
+            }
+            break;
+
+          case "resign":
+            id = s.nextInt();
+            PreparedStatement deleteUser = con.prepareStatement(
+              "DELETE FROM Reviewer WHERE reviewer_id = ?");
+            deleteUser.setInt(1, id);
+            deleteUser.executeUpdate();
+            System.out.println("User successfully deleted. Have a nice day not reviewing papers!");
+            break;
+
+          case "register":
+            PreparedStatement registerQuery = con.prepareStatement(
+              "INSERT INTO Reviewer (reviewer_lname, " +
+              "reviewer_fname, reviewer_affiliation, reviewer_email) " +
+              "VALUES (?, ?, ?, ?)");
+            String fName = s.next();
+            String lName = s.next();
+            System.out.println("Welcome, " + fName + " " + lName + "!");
+            registerQuery.setString(1, lName);
+            registerQuery.setString(2, fName);
+            s.nextLine();
+            System.out.print("Please enter an affiliation: ");
+            registerQuery.setString(3, s.nextLine());
+            System.out.print("Please enter an email address: ");
+            registerQuery.setString(4, s.nextLine());
+
+            registerQuery.executeUpdate();
+
+            Statement getReviewerID = con.createStatement();
+            ResultSet reviewerID =
+              getReviewerID.executeQuery("SELECT LAST_INSERT_ID()");
+            if (reviewerID.next()) {
+              System.out.println("Your reviewer ID is " + reviewerID.getObject(1));
+              handleReviewerLoggedIn(con, reviewerID.getInt(1));
+              finished = true;
+            }
+            else {
+              System.out.println("Error. Please try again.");
+            }
+            getReviewerID.close();
+            registerQuery.close();
+            reviewerID.close();
+
+            break;
+
+          case "quit":
+            finished = true;
+            System.out.println("Quitting...");
+            break;
+
+          default:
+            System.out.println("Invalid command - try again.");
+            break;
+        }
+      }
+    }
+    catch (SQLException e) {
+      e.printStackTrace();
+    }
+  }
+
+  /* Outputs status of all manuscripts being reviewed by this user */
+  public static void reviewerStatus(Connection con, int id) {
+    try {
+      PreparedStatement query = con.prepareStatement(
+        "SELECT manuscript_id, manuscript_title, "
+          + "manuscript_update_date, manuscript_status, author_id, "
+          + "FROM Manuscript JOIN Review WHERE reviewer_id = ? "
+          + " ORDER BY manuscript_status, manuscript_id");
+      query.setInt(1, id);
+      ResultSet res = query.executeQuery();
+      printQuery(query.toString(), res);
+      res.close();
+    }
+    catch (SQLException e) {
+      e.printStackTrace();
+    }
+  }
+
+  public static void handleReviewerLoggedIn(Connection con, int id) {
+    System.out.println("Type 'help' for list of commands.");
+    Scanner s = new Scanner(System.in);
+    boolean finished = false;
+    try {
+      while (!finished) {
+        String action = s.next();
+        switch (action) {
+          case "help":
+            reviewerLoggedInHelp();
+            break;
+
+          case "status":
+            reviewerStatus(con, id);
+            break;
+
+          case "review":
+            int manID = s.nextInt();
+            // Check that this reviewer is reviewing this manuscript
+            PreparedStatement checkMan = con.prepareStatement(
+              "SELECT * FROM Review WHERE manuscript_id = ? AND reviewer_id = ?");
+            checkMan.setInt(1, manID);
+            checkMan.setInt(2, id);
+            ResultSet res = checkMan.executeQuery();
+            if (!res.next()) { // reviewer not assigned to this review, bye!
+              System.out.println("You don't have access to this manuscript!");
+              break;
+            }
+
+            // ask if they want to reject or accept
+            System.out.print("Please type a if you would like to accept the manuscript (any other input taken as reject): ");
+            String response = s.next().equals("a") ? "Accept" : "Reject";
+
+            // ask for ratings 1-10 for four categories
+            System.out.print("Please input a score (1-10) for appropriateness: ");
+            int approp = s.nextInt();
+            if (approp > 10 || approp < 1) {
+              System.out.println("Invalid input!");
+              break;
+            }
+            s.nextLine();
+            System.out.print("Please input a score (1-10) for clarity: ");
+            int clarity = s.nextInt();
+            if (clarity > 10 || clarity < 1) {
+              System.out.println("Invalid input!");
+              break;
+            }
+            s.nextLine();
+            System.out.print("Please input a score (1-10) for methodology: ");
+            int method = s.nextInt();
+            if (method > 10 || method < 1) {
+              System.out.println("Invalid input!");
+              break;
+            }
+            s.nextLine();
+            System.out.print("Please input a score (1-10) for contribution: ");
+            int contrib = s.nextInt();
+            if (contrib > 10 || contrib < 1) {
+              System.out.println("Invalid input!");
+              break;
+            }
+            s.nextLine();
+
+            // Update Review
+            PreparedStatement updateReview = con.prepareStatement(
+              "UPDATE Review SET review_date_returned = NOW(), "
+              + "review_recommendation = ?, review_appropriateness = ?, "
+              + "review_clarity = ?, review_methodology = ?, review_contribution"
+              + " = ? WHERE reviewer_id = ? AND manuscript_id = ?");
+              updateReview.setString(1, response);
+              updateReview.setInt(2, approp);
+              updateReview.setInt(3, clarity);
+              updateReview.setInt(4, method);
+              updateReview.setInt(5, contrib);
+              updateReview.setInt(6, manID);
+              updateReview.setInt(7, id);
+              updateReview.executeUpdate();
+              System.out.println("Review accepted! Thank you for your hard work");
+            break;
+
+          case "logout":
+            finished = true;
+            System.out.println("Quitting...");
+            break;
+
+          default:
+            System.out.println("Invalid command - try again.");
+            break;
+        }
+      }
+    }
+    catch (SQLException e) {
+      e.printStackTrace();
     }
   }
 
@@ -794,6 +984,8 @@ public class mysqldb {
     System.out.println("login <id>");
     System.out.format("%-40s","Return to main menu:");
     System.out.println("quit");
+    System.out.format("%-40s","See commands:");
+    System.out.println("help");
   }
   public static void editorLoggedInHelp() {
     System.out.println("---------------Authorized Editor Commands---------------");
@@ -815,6 +1007,8 @@ public class mysqldb {
     System.out.println("publish <issue_id>");
     System.out.format("%-40s","Return to main menu:");
     System.out.println("logout");
+    System.out.format("%-40s","See commands:");
+    System.out.println("help");
   }
 
   /* Help output for user listing author commands */
@@ -825,7 +1019,7 @@ public class mysqldb {
     System.out.println("register <fname> <lname>");
     System.out.format("%-40s","Login as a returning user: ");
     System.out.println("login <id>");
-    System.out.format("%-40s","View commands again: ");
+    System.out.format("%-40s","See commands:");
     System.out.println("help");
     System.out.format("%-40s","Return to main menu: ");
     System.out.println("quit");
@@ -839,7 +1033,7 @@ public class mysqldb {
     System.out.println("status");
     System.out.format("%-40s","Retract a manuscript: ");
     System.out.println("retract <manuscript_id>");
-    System.out.format("%-40s","View commands again: ");
+    System.out.format("%-40s","See commands:");
     System.out.println("help");
     System.out.format("%-40s","Return to main menu: ");
     System.out.println("logout");
@@ -857,6 +1051,8 @@ public class mysqldb {
     System.out.println("resign <id>");
     System.out.format("%-40s","Return to main menu:");
     System.out.println("quit");
+    System.out.format("%-40s","See commands:");
+    System.out.println("help");
   }
   public static void reviewerLoggedInHelp() {
     System.out.println("---------------Authorized Reviewer Commands---------------");
@@ -867,6 +1063,8 @@ public class mysqldb {
     System.out.println("review <manuscript_id>");
     System.out.format("%-40s","Return to main menu:");
     System.out.println("logout");
+    System.out.format("%-40s","See commands:");
+    System.out.println("help");
   }
 
   /*
