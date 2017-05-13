@@ -51,11 +51,15 @@ public class mysqldb {
             }
           }
 
+          s.close();
+
         // Come back to main once a user signs out and let main close the connection
     //
-		} catch (SQLException e ) {          // catch SQL errors
+		}
+    catch (SQLException e ) {          // catch SQL errors
 		    System.err.format("SQL Error: %s", e.getMessage());
-		} catch (Exception e) {              // anything else
+		}
+    catch (Exception e) {              // anything else
 		    e.printStackTrace();
 		} finally {
 		  // cleanup
@@ -64,35 +68,38 @@ public class mysqldb {
   			stmt.close();
   			res.close();
   			System.out.print("\nConnection terminated.\n");
-	    } catch (Exception e) { /* ignore cleanup errors */ }
+	    }
+      catch (Exception e) { /* ignore cleanup errors */ }
 		}
   }
 
   public static void handleAuthor(Connection con) {
     System.out.println("You are in AUTHOR Mode.\nPlease register or login.");
     authorHelp();
-    Scanner a = new Scanner(System.in);
+    Scanner s = new Scanner(System.in);
     boolean completed = false;
-    try {
-      while (!completed) {
+    while (!completed) {
+      try {
         System.out.print("Command: ");
-        String action = a.next();
+        String action = s.next();
+
         if (action.equals("register")) {
-          String insertQuery = "INSERT INTO Author (author_lname, " +
+          PreparedStatement registerQuery = con.prepareStatement(
+            "INSERT INTO Author (author_lname, " +
             "author_fname, author_address, author_affiliation, author_email) " +
-            "VALUES (?, ?, ?, ?, ?)";
-          PreparedStatement registerQuery = con.prepareStatement(insertQuery);
-          String fName = a.next();
-          String lName = a.next();
+            "VALUES (?, ?, ?, ?, ?)");
+          String fName = s.next();
+          String lName = s.next();
           System.out.println("Welcome, " + fName + " " + lName + "!");
           registerQuery.setString(1, lName);
           registerQuery.setString(2, fName);
+          s.nextLine();
           System.out.print("Please enter a mailing address: ");
-          registerQuery.setString(3, a.next());
+          registerQuery.setString(3, s.nextLine());
           System.out.print("Please enter an email address: ");
-          registerQuery.setString(4, a.next());
+          registerQuery.setString(4, s.nextLine());
           System.out.print("Please enter an affiliation: ");
-          registerQuery.setString(5, a.next());
+          registerQuery.setString(5, s.nextLine());
           registerQuery.executeUpdate();
 
           Statement getAuthorID = con.createStatement();
@@ -100,14 +107,21 @@ public class mysqldb {
             getAuthorID.executeQuery("SELECT LAST_INSERT_ID()");
           if (authorID.next()) {
             System.out.println("Your author ID is " + authorID.getObject(1));
+            handleAuthorLoggedIn(con, authorID.getInt(1));
             completed = true;
-          } else {
+          }
+          else {
             System.out.println("Error. Please try again.");
           }
-        } else if (action.equals("login")) {
+          getAuthorID.close();
+          registerQuery.close();
+          authorID.close();
+        }
+        else if (action.equals("login")) {
           PreparedStatement loginQuery = con.prepareStatement(
             "SELECT * FROM Author WHERE author_id = ?");
-          loginQuery.setInt(1, Integer.parseInt(a.next()));
+          int authorID = Integer.parseInt(s.next());
+          loginQuery.setInt(1, authorID);
           ResultSet result = loginQuery.executeQuery();
           if (!result.next()) {
             System.out.println("That ID is invalid. Please try again.");
@@ -115,26 +129,206 @@ public class mysqldb {
             System.out.println("Welcome " +
               result.getString("author_fname") + " " +
               result.getString("author_lname") + "!");
+            System.out.println("Your manuscripts: ");
+            authorStatus(con, authorID);
+            handleAuthorLoggedIn(con, authorID);
             completed = true;
           }
-        } else {
+          loginQuery.close();
+          result.close();
+        }
+        else if (action.equals("help")) {
+          authorHelp();
+        }
+        else if (action.equals("quit")) {
+          completed = true;
+        }
+        else {
           System.out.println("That command is invalid.");
-          System.out.println("\n\n");
           authorHelp();
         }
       }
-    } catch (SQLException e) {
+      catch (SQLException e) {
+        e.printStackTrace();
+        System.out.println("Seems like there were errors with your input. " +
+          "Please try again. Remember: fill out every field!");
+        authorHelp();
+      }
+      catch (Exception e) {
+        e.printStackTrace();
+        System.out.println("Seems like there was an error " +
+          "or your input is invalid. Please try again.");
+      }
+    }
+  }
+
+  public static void handleAuthorLoggedIn(Connection con, int authorID) {
+    authorLoggedInHelp();
+    Scanner s = new Scanner(System.in);
+    boolean completed = false;
+    while (!completed) {
+      try {
+        System.out.print("Command: ");
+        String action = s.next();
+
+        if (action.equals("status")) {
+          authorStatus(con, authorID);
+        }
+        else if (action.equals("retract")) {
+          int manuscriptID = s.nextInt();
+          System.out.print("Are you sure? (y/n): ");
+          String answer = s.next();
+          if (answer.equals("y") || answer.equals("Y")) {
+            authorManuscriptRetract(con, authorID, manuscriptID);
+          }
+          else {
+            System.out.println("Will not retract manuscript.");
+          }
+        }
+        else if (action.equals("submit")) {
+          PreparedStatement manuscriptQuery = con.prepareStatement(
+            "INSERT INTO Manuscript (manuscript_title, manuscript_blob, " +
+            "manuscript_update_date, manuscript_status, aoi_ri_code, " +
+            "author_id, editor_id) VALUES (?, ?, NOW(), ?, ?, ?, ?)");
+          manuscriptQuery.setString(1, s.next());
+          authorUpdateAffiliation(con, authorID, s.next());
+          int riCode = s.nextInt();
+          int editorID = authorEditor(con);
+          if (authorValidRICode(con, riCode) && editorID != 0) {
+            System.out.print("Please enter the contents of your manuscript: ");
+            s.nextLine();
+            manuscriptQuery.setString(2, s.nextLine());
+            manuscriptQuery.setString(3, "Submitted");
+            manuscriptQuery.setInt(4, riCode);
+            manuscriptQuery.setInt(5, authorID);
+            manuscriptQuery.setInt(6, editorID);
+            manuscriptQuery.executeUpdate();
+          }
+          else {
+            System.out.println("Either your RI code is invalid or there are " +
+            "currently no editors in the system. Please try again later.");
+          }
+          manuscriptQuery.close();
+        }
+        else if (action.equals("help")) {
+          authorLoggedInHelp();
+        }
+        else if (action.equals("logout")) {
+          completed = true;
+        }
+        else {
+          System.out.println("That command is invalid.");
+          authorLoggedInHelp();
+        }
+      }
+      catch (Exception e) {
+        e.printStackTrace();
+        System.out.println("Seems like there was an error " +
+          "or your input is invalid. Please try again.");
+      }
+    }
+  }
+
+  public static void authorStatus(Connection con, int authorID) {
+    try {
+      String query =
+        "SELECT manuscript_id, manuscript_title, manuscript_update_date, " +
+        "manuscript_status, aoi_ri_code, editor_id FROM Manuscript " +
+        "WHERE author_id = " + authorID + " " +
+        "ORDER BY CASE manuscript_status " +
+          "WHEN 'Submitted' THEN 1 WHEN 'UnderReview' THEN 2 " +
+          "WHEN 'Rejected' THEN 3 WHEN 'Accepted' THEN 4 " +
+          "WHEN 'Typeset' THEN 5 WHEN 'Scheduled' THEN 6 " +
+          "WHEN 'Published' THEN 7 END, manuscript_id";
+      Statement stmt = con.createStatement();
+      ResultSet res = stmt.executeQuery(query);
+      printQuery(query, res);
+      res.close();
+      stmt.close();
+    }
+    catch (SQLException e) {
       e.printStackTrace();
-      System.out.println("Seems like there were errors with your syntax. " +
-        "Please try again. Remember: fill out every field!");
-      System.out.println("\n\n");
-      handleAuthor(con);
-    } catch (Exception e) {
+    }
+  }
+
+  public static void authorManuscriptRetract(
+    Connection con, int authorID, int manuscriptID) {
+    try {
+      String checkQuery =
+        "SELECT * FROM Manuscript WHERE manuscript_id = " + manuscriptID +
+        " AND author_id = " + authorID;
+      Statement stmt = con.createStatement();
+      if (!stmt.executeQuery(checkQuery).next()) {
+        System.out.println("Make sure your manuscript id is valid. " +
+          "You cannot delete others' manuscripts");
+      }
+      else {
+        String deleteQuery =
+          "DELETE FROM Manuscript WHERE manuscript_id = " + manuscriptID;
+        stmt = con.createStatement();
+        stmt.executeUpdate(deleteQuery);
+        System.out.println("Manuscript deleted from system");
+      }
+      stmt.close();
+    }
+    catch (SQLException e) {
       e.printStackTrace();
-      System.out.println("Seems like there was a system error. " +
-        "Please try again.");
-      System.out.println("\n\n");
-      handleAuthor(con);
+    }
+  }
+
+  public static void authorUpdateAffiliation(
+    Connection con, int authorID, String affiliation) {
+    try {
+      PreparedStatement stmt = con.prepareStatement(
+        "UPDATE Author SET author_affiliation = ? WHERE author_id = ?");
+      stmt.setString(1, affiliation);
+      stmt.setInt(2, authorID);
+      stmt.executeUpdate();
+      stmt.close();
+    }
+    catch (SQLException e) {
+      e.printStackTrace();
+    }
+  }
+
+  public static boolean authorValidRICode(Connection con, int riCode) {
+    try {
+      String query = "SELECT * FROM Aoi WHERE aoi_ri_code = " + riCode;
+      Statement stmt = con.createStatement();
+      if (!stmt.executeQuery(query).next()) {
+        stmt.close();
+        return false;
+      }
+      stmt.close();
+      return true;
+    }
+    catch (SQLException e) {
+      e.printStackTrace();
+      return false;
+    }
+  }
+
+  public static int authorEditor(Connection con) {
+    try {
+      String query = "SELECT editor_id, MIN(manuscripts_per_editor) FROM " +
+      "(SELECT editor_id, COUNT(*) as manuscripts_per_editor FROM " +
+      "(SELECT * FROM Manuscript) as editors GROUP BY editor_id) as min_editor";
+      Statement stmt = con.createStatement();
+      ResultSet result = stmt.executeQuery(query);
+      if (!result.next()) {
+        stmt.close();
+        result.close();
+        return 0;
+      }
+      else {
+        stmt.close();
+        result.close();
+        return result.getInt("editor_id");
+      }
+    }
+    catch (SQLException e) {
+      e.printStackTrace();
+      return 0;
     }
   }
 
@@ -614,9 +808,11 @@ public class mysqldb {
     System.out.println("Note: some commands will prompt user for further input after the initial command");
     System.out.format("%-40s", "Register as a new user: ");
     System.out.println("register <fname> <lname>");
-    System.out.format("%-40s","Login as a returning user:");
+    System.out.format("%-40s","Login as a returning user: ");
     System.out.println("login <id>");
-    System.out.format("%-40s","Return to main menu:");
+    System.out.format("%-40s","View commands again: ");
+    System.out.println("help");
+    System.out.format("%-40s","Return to main menu: ");
     System.out.println("quit");
   }
   public static void authorLoggedInHelp() {
@@ -624,11 +820,13 @@ public class mysqldb {
     System.out.println("Note: some commands will prompt user for further input after the initial command");
     System.out.format("%-40s","Submit a manuscript: ");
     System.out.println("submit <title> <author_affiliation> <ri_code>");
-    System.out.format("%-40s","See status of submitted manuscripts:");
+    System.out.format("%-40s","See status of submitted manuscripts: ");
     System.out.println("status");
     System.out.format("%-40s","Retract a manuscript: ");
     System.out.println("retract <manuscript_id>");
-    System.out.format("%-40s","Return to main menu:");
+    System.out.format("%-40s","View commands again: ");
+    System.out.println("help");
+    System.out.format("%-40s","Return to main menu: ");
     System.out.println("logout");
   }
 
@@ -661,19 +859,24 @@ public class mysqldb {
   */
   public static void printQuery(String query, ResultSet res) {
     // don't need to print query
-    if (query != null) {
-      System.out.format("Query executed: '%s'\n\nResults:\n", query);
-    }
+    // if (query != null) {
+    //   System.out.format("Query executed: '%s'\n\nResults:\n", query);
+    // }
     try {
       int numColumns = res.getMetaData().getColumnCount();
       for(int i = 1; i <= numColumns; i++) {
-        System.out.format("%-20s", res.getMetaData().getColumnName(i));
+        System.out.format("%-25s", res.getMetaData().getColumnName(i));
       }
-      System.out.println("\n-------------------------------------------------");
+      int numTicks = 25 * numColumns;
+      System.out.println("");
+      for (int i = 0; i < numTicks; i++) {
+        System.out.print("-");
+      }
+      System.out.println("");
       res.beforeFirst();
       while (res.next()) {
         for (int i = 1; i <= numColumns; i++) {
-          System.out.format("%-20s", res.getObject(i));
+          System.out.format("%-25s", res.getObject(i));
         }
         System.out.println("");
       }
