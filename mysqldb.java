@@ -210,9 +210,6 @@ public class mysqldb {
     catch (SQLException exception) {
       exception.printStackTrace();
     }
-    finally {
-      s.close();
-    }
   }
 
   public static void editorStatus(Connection con) {
@@ -245,6 +242,7 @@ public class mysqldb {
           case "status":
             editorStatus(con);
             break;
+
           case "assign":
             manID = s.nextInt();
             int revID = s.nextInt();
@@ -294,19 +292,21 @@ public class mysqldb {
               }
             }
             break;
+
           case "reject":
             PreparedStatement rejectQuery = con.prepareStatement(
               "UPDATE Manuscript SET manuscript_status = \"Rejected\", manuscript_update_date = NOW() WHERE manuscript_id = ?");
             rejectQuery.setInt(1, s.nextInt());
             rejectQuery.executeUpdate();
             break;
+
           case "accept":
             PreparedStatement acceptQuery = con.prepareStatement(
               "UPDATE Manuscript SET manuscript_status = \"Accepted\", manuscript_update_date = NOW() WHERE manuscript_id = ?");
             acceptQuery.setInt(1, s.nextInt());
             acceptQuery.executeUpdate();
             break;
-//TODO: add to typeset, query to update man status
+
           case "typeset":
             // Get args
             manID = s.nextInt();
@@ -326,6 +326,13 @@ public class mysqldb {
                 insertArticle.setInt(1, manID);
                 insertArticle.setInt(2, numPages);
                 insertArticle.executeUpdate();
+
+                // Update article to Typescript state
+                PreparedStatement updateMan = con.prepareStatement(
+                  "UPDATE Manuscript SET manuscript_status = \"Typescript\", "
+                  + "manuscript_update_date = NOW() WHERE manuscript_id = ?");
+                updateMan.setInt(1, manID);
+                updateMan.executeUpdate();
               }
               else {
                 System.out.println("ERROR: manuscript in invalid state");
@@ -446,6 +453,7 @@ public class mysqldb {
               System.out.println("ERROR: Issue not correctly created");
             }
             break;
+
           case "publish":
             // Get args
             issueID = s.nextInt();
@@ -482,12 +490,15 @@ public class mysqldb {
               System.out.println("ERROR: Failed to check issue validity");
             }
             break;
+
           case "logout":
             finished = true;
             break;
+
           case "help":
             editorLoggedInHelp();
             break;
+
           default:
             System.out.println("ERROR: Invalid command");
             editorLoggedInHelp();
@@ -504,7 +515,6 @@ public class mysqldb {
         catch (Exception e) { /* do nothing */ }
       }
     }
-    s.close();
   }
 
 
@@ -564,15 +574,6 @@ public class mysqldb {
       e.printStackTrace();
       return null;
     }
-  }
-
-
-  /*
-    Returns the status of manuscripts associated with the given user
-    Prints to stdout and returns nothing
-  */
-  public static void status(Connection con, char mode, int id) {
-
   }
 
   /* Help output for user listing editor commands */
