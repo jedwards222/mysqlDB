@@ -47,7 +47,7 @@ CREATE TABLE Issue (
   issue_id INT NOT NULL AUTO_INCREMENT,
   issue_year INT NOT NULL,
   issue_period INT NOT NULL,
-  issue_print_date DATE NOT NULL,
+  issue_print_date DATE NULL,
   PRIMARY KEY (issue_id)
   );
 
@@ -192,11 +192,11 @@ CREATE TABLE Secondary_author (
   CONSTRAINT manuscript_id_second_author
     FOREIGN KEY (manuscript_id)
     REFERENCES Manuscript (manuscript_id)
-    -- If a manuscript is removed from the system, delete all secondary authors 
+    -- If a manuscript is removed from the system, delete all secondary authors
     -- associated with it
     ON DELETE CASCADE
     );
-    
+
 -- Insert data into tables
 
 -- Aoi (Area of interest) Codes --
@@ -328,9 +328,9 @@ INSERT INTO Aoi (aoi_name) VALUES
 
 
 -- Editors --
-INSERT INTO Editor (editor_lname, editor_fname) VALUES 
+INSERT INTO Editor (editor_lname, editor_fname) VALUES
 ("Reese","Cally"),
-("Hunter","MacKenzie"), 
+("Hunter","MacKenzie"),
 ("Jacobson","Lillian"),
 ("Blair","Kyla"),
 ("Harvey","Amber"),
@@ -364,7 +364,7 @@ INSERT INTO Editor (editor_lname, editor_fname) VALUES
 ("Riggs","Pearl");
 
 -- Issues --
-INSERT INTO Issue (issue_year, issue_period, issue_print_date) VALUES 
+INSERT INTO Issue (issue_year, issue_period, issue_print_date) VALUES
 (1996, 1, '1996-01-11'),
 (1996, 2, '1996-04-10'),
 (1996, 3, '1996-08-25'),
@@ -431,7 +431,7 @@ INSERT INTO Author (author_lname, author_fname, author_address, author_affiliati
 ("Rivers","Phillip","44 College Road.","Columbia","mi.lorem.vehicula@accumsanconvallis.net");
 
 -- Reviewer_aoi --
-INSERT INTO Reviewer_aoi (aoi_ri_code, reviewer_id) VALUES 
+INSERT INTO Reviewer_aoi (aoi_ri_code, reviewer_id) VALUES
 (4, 2),
 (5, 2),
 (5, 1),
@@ -453,9 +453,9 @@ INSERT INTO Reviewer_aoi (aoi_ri_code, reviewer_id) VALUES
 
 
 -- Manuscript --
-INSERT INTO Manuscript 
-(manuscript_title, manuscript_blob, manuscript_update_date, manuscript_status, aoi_ri_code, author_id, editor_id) 
-VALUES 
+INSERT INTO Manuscript
+(manuscript_title, manuscript_blob, manuscript_update_date, manuscript_status, aoi_ri_code, author_id, editor_id)
+VALUES
 ("A","Blob1","1999-10-17","Accepted",8,10,14),
 ("B","Blob2","1997-03-17","UnderReview",12,6,1),
 ("C","Blob3","1999-03-26","UnderReview",16,8,13),
@@ -494,9 +494,9 @@ INSERT INTO Article (manuscript_id, article_num_pages, article_order_num, articl
 (17, 90, 1, 4, 10);
 
 -- Review --
-INSERT INTO Review 
-(manuscript_id, reviewer_id, review_date_sent, review_date_returned, 
-review_recommendation, review_appropriateness, review_clarity, review_contribution, review_methodology) 
+INSERT INTO Review
+(manuscript_id, reviewer_id, review_date_sent, review_date_returned,
+review_recommendation, review_appropriateness, review_clarity, review_contribution, review_methodology)
 VALUES
 (3,8,"1998-02-18","1998-05-16","Accept",8,5,3,6),
 (2,2,"1998-08-13","1998-07-10","Reject",2,1,4,8),
@@ -510,9 +510,9 @@ VALUES
 (6,8,"1996-08-01","1996-09-05","Reject",4,8,10,5);
 
 -- Secondary_author --
-INSERT INTO Secondary_author 
-(sauthor_order_num, manuscript_id, sauthor_lname, sauthor_fname, sauthor_address, sauthor_email) 
-VALUES 
+INSERT INTO Secondary_author
+(sauthor_order_num, manuscript_id, sauthor_lname, sauthor_fname, sauthor_address, sauthor_email)
+VALUES
 (1, 1, 'Camden', 'Tate', '44 College Road, Hanover, NH 03755', 'tate@dartmouth.edu'),
 (2, 1, 'Smith', 'Alex', '44 College Road, Hanover, NH 03755', 'alex@dartmouth.edu'),
 (3, 1, 'Adams', 'Jamaal', '44 College Road, Hanover, NH 03755', 'jamaal@dartmouth.edu'),
