@@ -563,7 +563,7 @@ public class mysqldb {
                   System.out.println("ERROR: issue not found");
                   break;
                 }
-                if (!artIssRes.getObject(1).equals(null)) {
+                if (artIssRes.getObject(1) != null) {
                   System.out.println("ERROR: article already scheduled");
                   break;
                 }
@@ -607,13 +607,22 @@ public class mysqldb {
                   // Update Article for given man_id
                   PreparedStatement scheduleArticle = con.prepareStatement(
                     "UPDATE Article SET article_order_num = ?, article_start_page = ?"
-                    + ", issue_id = ?) WHERE manuscript_id = ? ");
+                    + ", issue_id = ? WHERE manuscript_id = ? ");
+
                   scheduleArticle.setInt(1, order);
                   scheduleArticle.setInt(2, start);
                   scheduleArticle.setInt(3, issueID);
                   scheduleArticle.setInt(4, manID);
                   scheduleArticle.executeUpdate();
-                  System.out.println("We did it");
+
+                  // Change manuscript status to "Scheduled"
+                  PreparedStatement scheduleManuscript = con.prepareStatement(
+                    "UPDATE Manuscript set manuscript_status = 'Scheduled' " +
+                    "WHERE manuscript_id = ?");
+                  scheduleManuscript.setInt(1, manID);
+                  scheduleManuscript.executeUpdate();
+                  System.out.println("Article added and " +
+                    "manuscript status set to scheduled");
                 }
 
               }
@@ -679,6 +688,7 @@ public class mysqldb {
                   "UPDATE Issue SET issue_print_date=NOW() WHERE issue_id = ?");
                 issueUpdate.setInt(1, issueID);
                 issueUpdate.executeUpdate();
+                System.out.println("Issue published");
 
               }
               else {
