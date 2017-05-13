@@ -8,7 +8,7 @@ import java.util.Scanner;
 
 public class mysqldb {
   public static final String SERVER   = "jdbc:mysql://sunapee.cs.dartmouth.edu/";
-  public static final String USERNAME = "cshashwat"; // Fill in with credentials
+  public static final String USERNAME = "cshashwat";    // Fill in with credentials
   public static final String PASSWORD = "riderevent78"; // Fill in with credentials
   public static final String DATABASE = "cshashwat_db";
   public static final String QUERY    = "SELECT * FROM Author;";
@@ -31,6 +31,7 @@ public class mysqldb {
         // Prompt user to indicate whether they are author/editor/reviewer
         System.out.println("Type 'a', 'e', or 'r' to indicate your job (author, editor, reviewer)");
         boolean success = false;
+        // Come back to main once a user signs out and let main close the connection
         while (!success) {
           success = true;
           char resp = s.next().charAt(0);
@@ -52,9 +53,6 @@ public class mysqldb {
           }
 
           s.close();
-
-        // Come back to main once a user signs out and let main close the connection
-    //
 		}
     catch (SQLException e ) {          // catch SQL errors
 		    System.err.format("SQL Error: %s", e.getMessage());
@@ -113,8 +111,8 @@ public class mysqldb {
           else {
             System.out.println("Error. Please try again.");
           }
-          getAuthorID.close();
           registerQuery.close();
+          getAuthorID.close();
           authorID.close();
         }
         else if (action.equals("login")) {
@@ -152,7 +150,6 @@ public class mysqldb {
         e.printStackTrace();
         System.out.println("Seems like there were errors with your input. " +
           "Please try again. Remember: fill out every field!");
-        authorHelp();
       }
       catch (Exception e) {
         e.printStackTrace();
@@ -163,6 +160,7 @@ public class mysqldb {
   }
 
   public static void handleAuthorLoggedIn(Connection con, int authorID) {
+    System.out.println("You are now logged in as an Author.\n");
     authorLoggedInHelp();
     Scanner s = new Scanner(System.in);
     boolean completed = false;
@@ -203,6 +201,7 @@ public class mysqldb {
             manuscriptQuery.setInt(5, authorID);
             manuscriptQuery.setInt(6, editorID);
             manuscriptQuery.executeUpdate();
+            System.out.println("Manuscript created.");
           }
           else {
             System.out.println("Either your RI code is invalid or there are " +
@@ -243,8 +242,8 @@ public class mysqldb {
       Statement stmt = con.createStatement();
       ResultSet res = stmt.executeQuery(query);
       printQuery(query, res);
-      res.close();
       stmt.close();
+      res.close();
     }
     catch (SQLException e) {
       e.printStackTrace();
@@ -384,7 +383,6 @@ public class mysqldb {
 
             // Print out status of manuscripts
             editorStatus(con);
-
             handleEditorLoggedIn(con, id);
             finished = true;
           }
@@ -409,14 +407,19 @@ public class mysqldb {
   /* Outputs status of all manuscripts */
   public static void editorStatus(Connection con) {
     try {
-      String query = "SELECT manuscript_id, manuscript_title, "
-              + "manuscript_update_date, manuscript_status, author_id, editor_id "
-              + "FROM Manuscript ORDER BY manuscript_status, manuscript_id";
+      String query =
+        "SELECT manuscript_id, manuscript_title, manuscript_update_date, " +
+        "manuscript_status, author_id, editor_id FROM Manuscript " +
+        "ORDER BY CASE manuscript_status " +
+          "WHEN 'Submitted' THEN 1 WHEN 'UnderReview' THEN 2 " +
+          "WHEN 'Rejected' THEN 3 WHEN 'Accepted' THEN 4 " +
+          "WHEN 'Typeset' THEN 5 WHEN 'Scheduled' THEN 6 " +
+          "WHEN 'Published' THEN 7 END, manuscript_id";
       Statement stmt = con.createStatement();
       ResultSet res = stmt.executeQuery(query);
       printQuery(query, res);
-      res.close();
       stmt.close();
+      res.close();
     }
     catch (SQLException e) {
       e.printStackTrace();
@@ -472,10 +475,11 @@ public class mysqldb {
 
                   // update the manuscript's status
                   PreparedStatement statusUpdate = con.prepareStatement(
-                    "UPDATE Manuscript SET manuscript_status = \"UnderReview\" "
-                    + "SET manuscript_update_date = NOW() WHERE manuscript_id = ?");
+                    "UPDATE Manuscript SET manuscript_status = 'UnderReview', "
+                    + "manuscript_update_date = NOW() WHERE manuscript_id = ?");
                   statusUpdate.setInt(1, manID);
                   statusUpdate.executeUpdate();
+                  System.out.println("Review created and assigned.");
                 }
                 else {
                   System.out.println("That reviewer has no experience in the given "
@@ -524,7 +528,7 @@ public class mysqldb {
 
                 // Update article to Typescript state
                 PreparedStatement updateMan = con.prepareStatement(
-                  "UPDATE Manuscript SET manuscript_status = \"Typescript\", "
+                  "UPDATE Manuscript SET manuscript_status = \"Typeset\", "
                   + "manuscript_update_date = NOW() WHERE manuscript_id = ?");
                 updateMan.setInt(1, manID);
                 updateMan.executeUpdate();
@@ -610,6 +614,7 @@ public class mysqldb {
                   scheduleArticle.setInt(3, issueID);
                   scheduleArticle.setInt(4, manID);
                   scheduleArticle.executeUpdate();
+                  System.out.println("We did it");
                 }
 
               }
@@ -1083,5 +1088,4 @@ public class mysqldb {
       e.printStackTrace();
     }
   }
-
 }
