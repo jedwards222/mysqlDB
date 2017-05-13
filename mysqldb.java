@@ -427,7 +427,278 @@ public class mysqldb {
 
   public static void handleEditorLoggedIn(Connection con, int id) {
     System.out.println("\nType 'help' for possible commands");
+    Scanner s = new Scanner(System.in);
+    boolean finished = false;
+    int manID, issueID;
+    Statement stmt = null;
+    while (!finished) {
+      try {
+        stmt = con.createStatement();
+        String action = s.next();
+        switch (action) {
+          case "status":
+            editorStatus(con);
+            break;
+          case "assign":
+            manID = s.nextInt();
+            int revID = s.nextInt();
 
+            // Check that the manuscript has a valid status
+            PreparedStatement statusQuery = con.prepareStatement(
+              "SELECT manuscript_status FROM Manuscript WHERE manuscript_id = ?");
+            statusQuery.setInt(1, manID);
+            ResultSet statusRes = statusQuery.executeQuery();
+            if (!statusRes.next()) {
+              System.out.println("ERROR: invalid manID");
+            }
+            else {
+              String status = statusRes.getObject(1).toString();
+              if (status.equals("Submitted") || status.equals("UnderReview")) {
+                // Check that the reviewer's aoi code matches that of the manuscript
+                PreparedStatement assignQuery = con.prepareStatement(
+                  "SELECT aoi_ri_code FROM Manuscript WHERE manuscript_id = ? AND aoi_ri_code IN "
+                  + "(SELECT aoi_ri_code FROM Reviewer_aoi WHERE reviewer_id = ?)");
+                assignQuery.setInt(1, manID);
+                assignQuery.setInt(2, revID);
+                ResultSet res = assignQuery.executeQuery();
+
+                if (res.next()) { // valid reviewer
+                  // create the review
+                  PreparedStatement assignUpdate = con.prepareStatement(
+                    "INSERT INTO Review (manuscript_id, reviewer_id, review_date_sent) "
+                    + "VALUES (?, ?, NOW())");
+                  assignUpdate.setInt(1, manID);
+                  assignUpdate.setInt(2, revID);
+                  assignUpdate.executeUpdate();
+
+                  // update the manuscript's status
+                  PreparedStatement statusUpdate = con.prepareStatement(
+                    "UPDATE Manuscript SET manuscript_status = \"UnderReview\" "
+                    + "SET manuscript_update_date = NOW() WHERE manuscript_id = ?");
+                  statusUpdate.setInt(1, manID);
+                  statusUpdate.executeUpdate();
+                }
+                else {
+                  System.out.println("That reviewer has no experience in the given "
+                                + "manuscript's subject. Try a different reviewer");
+                }
+              }
+              else {
+                System.out.println("ERROR: Manuscript is not in valid state");
+              }
+            }
+            break;
+          case "reject":
+            PreparedStatement rejectQuery = con.prepareStatement(
+              "UPDATE Manuscript SET manuscript_status = \"Rejected\", manuscript_update_date = NOW() WHERE manuscript_id = ?");
+            rejectQuery.setInt(1, s.nextInt());
+            rejectQuery.executeUpdate();
+            break;
+          case "accept":
+            PreparedStatement acceptQuery = con.prepareStatement(
+              "UPDATE Manuscript SET manuscript_status = \"Accepted\", manuscript_update_date = NOW() WHERE manuscript_id = ?");
+            acceptQuery.setInt(1, s.nextInt());
+            acceptQuery.executeUpdate();
+            break;
+//TODO: add to typeset, query to update man status
+          case "typeset":
+            // Get args
+            manID = s.nextInt();
+            int numPages = s.nextInt();
+
+            // Check that the manuscript is currently in the Accepted state
+            PreparedStatement stateQuery = con.prepareStatement(
+              "SELECT manuscript_status FROM Manuscript WHERE manuscript_id = ?");
+            stateQuery.setInt(1, manID);
+            ResultSet stateRes = stateQuery.executeQuery();
+            if (stateRes.next()) {
+              if (stateRes.getObject(1).toString().equals("Accepted")) {
+                // Insert a new article
+                PreparedStatement insertArticle = con.prepareStatement(
+                  "INSERT INTO Article (manuscript_id, article_num_pages) VALUES "
+                    + "(?, ?)");
+                insertArticle.setInt(1, manID);
+                insertArticle.setInt(2, numPages);
+                insertArticle.executeUpdate();
+              }
+              else {
+                System.out.println("ERROR: manuscript in invalid state");
+              }
+            }
+            else {
+              System.out.println("ERROR: manuscript not found");
+            }
+            break;
+
+          case "schedule":
+            // Get args
+            manID = s.nextInt();
+            issueID = s.nextInt();
+
+            // Make sure manuscript is 'Typeset'
+            PreparedStatement typeQuery = con.prepareStatement(
+              "SELECT manuscript_status FROM Manuscript WHERE manuscript_id = ?");
+            typeQuery.setInt(1, manID);
+            ResultSet typeRes = typeQuery.executeQuery();
+            if (typeRes.next()) {
+              if (typeRes.getObject(1).toString().equals("Typeset")) {
+
+                // Make sure article's issue is NULL
+                PreparedStatement artIssQuery = con.prepareStatement(
+                  "SELECT issue_id FROM Article WHERE manuscript_id = ?");
+                artIssQuery.setInt(1, manID);
+                ResultSet artIssRes = artIssQuery.executeQuery();
+                if (!artIssRes.next()) {
+                  System.out.println("ERROR: issue not found");
+                  break;
+                }
+                if (!artIssRes.getObject(1).equals(null)) {
+                  System.out.println("ERROR: article already scheduled");
+                  break;
+                }
+
+                // Get the row for the article with highest starting page for current issue from article
+                PreparedStatement orderQuery = con.prepareStatement(
+                  "SELECT article_order_num, article_num_pages, article_start_page"
+                  +" FROM Article WHERE issue_id = ? ORDER BY article_order_num;");
+                orderQuery.setInt(1, issueID);
+                ResultSet orderRes = orderQuery.executeQuery();
+                int oldLength = 0;
+                int oldStart = 1;
+                int oldOrder = 0;
+                while (orderRes.next()) {
+                  oldOrder = orderRes.getInt(1);
+                  oldLength = orderRes.getInt(2);
+                  oldStart = orderRes.getInt(3);
+                }
+                int order = oldOrder + 1;
+
+                // Get current manuscript's article page length
+                PreparedStatement lengthQuery = con.prepareStatement(
+                  "SELECT article_num_pages FROM Article WHERE manuscript_id = ?");
+                lengthQuery.setInt(1, manID);
+                ResultSet lengthResult = lengthQuery.executeQuery();
+                if (!lengthResult.next()) {
+                  System.out.println("ERROR: issue not found");
+                  break;
+                }
+                int length = lengthResult.getInt(1);
+
+                // Add starting page to that article length, add current article length
+                int start = oldStart + oldLength;
+                int sum = start + length;
+
+                // Check if this new value is > 100
+                if (sum > 100) {
+                  System.out.println("ERROR: The given issue has no room for that article.");
+                }
+                else {
+                  // Update Article for given man_id
+                  PreparedStatement scheduleArticle = con.prepareStatement(
+                    "UPDATE Article SET article_order_num = ?, article_start_page = ?"
+                    + ", issue_id = ?) WHERE manuscript_id = ? ");
+                  scheduleArticle.setInt(1, order);
+                  scheduleArticle.setInt(2, start);
+                  scheduleArticle.setInt(3, issueID);
+                  scheduleArticle.setInt(4, manID);
+                  scheduleArticle.executeUpdate();
+                }
+
+              }
+              else {
+                System.out.println("ERROR: manuscript in invalid state");
+              }
+            }
+            else {
+              System.out.println("ERROR: manuscript not found");
+            }
+
+
+            break;
+
+          case "create":
+            // Get args
+            int issueYear = s.nextInt();
+            int issuePeriod = s.nextInt();
+
+            // Create issue
+            PreparedStatement createIssue = con.prepareStatement(
+              "INSERT INTO Issue (issue_year, issue_period) "
+              + "VALUES (?, ?)");
+            createIssue.setInt(1, issueYear);
+            createIssue.setInt(2, issuePeriod);
+            createIssue.executeUpdate();
+
+            // Return Issue ID
+            ResultSet res = stmt.executeQuery("SELECT LAST_INSERT_ID()");
+            issueID = -1;
+            if (res.next()) {
+              issueID = res.getInt(1);
+              System.out.println("Your issue has been created with ID = " + issueID);
+            }
+            else {
+              System.out.println("ERROR: Issue not correctly created");
+            }
+            break;
+          case "publish":
+            // Get args
+            issueID = s.nextInt();
+            // Check the issue has at least one article
+            PreparedStatement issueCheck = con.prepareStatement(
+              "SELECT COUNT(*) FROM Article WHERE issue_id = ?");
+            issueCheck.setInt(1, issueID);
+            ResultSet articleCount = issueCheck.executeQuery();
+            if (articleCount.next()) {
+              if (articleCount.getInt(1) > 0) {
+
+                // Update all manuscripts from this issue status to published
+                PreparedStatement manuscriptsUpdate = con.prepareStatement(
+                  "UPDATE Manuscript SET manuscript_status = \"Published\", "
+                  + "manuscript_update_date = NOW() WHERE manuscript_id IN "
+                  + "(SELECT Mans.manuscript_id FROM (SELECT * FROM "
+                  + "Manuscript NATURAL JOIN Article WHERE Article.issue_id = ?)"
+                  + " as Mans)");
+                manuscriptsUpdate.setInt(1, issueID);
+                manuscriptsUpdate.executeUpdate();
+
+                // change issue publish date to current date
+                PreparedStatement issueUpdate = con.prepareStatement(
+                  "UPDATE Issue SET issue_print_date=NOW() WHERE issue_id = ?");
+                issueUpdate.setInt(1, issueID);
+                issueUpdate.executeUpdate();
+
+              }
+              else {
+                System.out.println("ERROR: That issue has no articles");
+              }
+            }
+            else {
+              System.out.println("ERROR: Failed to check issue validity");
+            }
+            break;
+          case "logout":
+            finished = true;
+            break;
+          case "help":
+            editorLoggedInHelp();
+            break;
+          default:
+            System.out.println("ERROR: Invalid command");
+            editorLoggedInHelp();
+            break;
+        }
+      }
+      catch (SQLException exception) {
+        exception.printStackTrace();
+      }
+      finally {
+        try {
+          stmt.close();
+        }
+        catch (Exception e) { /* do nothing */ }
+      }
+    }
+    s.close();
   }
 
 
@@ -522,6 +793,8 @@ public class mysqldb {
     System.out.println("typeset <manuscript_id> <num_pages>");
     System.out.format("%-40s","Schedule a manuscript: ");
     System.out.println("schedule <manuscript_id> <issue_id>");
+    System.out.format("%-40s","Create an issue: ");
+    System.out.println("create <issue_year> <issue_period>");
     System.out.format("%-40s","Publish an issue: ");
     System.out.println("publish <issue_id>");
     System.out.format("%-40s","Return to main menu:");
