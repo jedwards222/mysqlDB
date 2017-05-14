@@ -27,15 +27,3 @@ Run `make clean` to remove the executable and object file created by compilation
 ### Testing
 
 We went through every possible command in a variety of normal use cases and edge cases. Our database was robust against these edge cases and preventing corruption of data.
-
-### TODO
-
-1. editor logged in: reject/accept should check manuscript status
-
-2. editor logged in: issue period must be between 1 and 4
-
-3. author logged in: submit manuscript without enough ri code reviewers logs you out <-- Well it doesn't log you out but sends you back to main page 
-
-4. Haven't checked all of reviewer's functions that closely -- also would be easier to check further editor abilities if we had some more actions for editor to take (ie. see all reviewers)
-
-5. Add a function to list aoi code descriptions and their numbers <-- Just added lines to author. Think we only need it two places?

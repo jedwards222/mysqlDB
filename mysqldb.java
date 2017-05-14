@@ -577,10 +577,19 @@ public class mysqldb {
           case "reject":
             manID = s.nextInt();
             // Check the manuscript is in the underReview status and has 3 completed reviews
+            PreparedStatement rstateQuery = con.prepareStatement(
+              "SELECT * FROM Manuscript WHERE manuscript_id = ? AND manuscript_status = 'UnderReview'");
+            rstateQuery.setInt(1, manID);
+            ResultSet rstateRes = rstateQuery.executeQuery();
+            if (!rstateRes.next()) {
+              System.out.println("Manuscript in invalid state");
+              break;
+            }
+
+
             PreparedStatement rstatusQuery = con.prepareStatement(
               "SELECT * FROM Manuscript NATURAL JOIN Review "
-              + "WHERE manuscript_id = ? AND manuscript_status = 'UnderReview' "
-              + "AND review_recommendation IS NULL");
+              + "WHERE manuscript_id = ? AND review_recommendation IS NULL");
             rstatusQuery.setInt(1, manID);
             ResultSet rstatusRes = rstatusQuery.executeQuery();
             if (rstatusRes.next()) {
@@ -610,10 +619,19 @@ public class mysqldb {
           case "accept":
             manID = s.nextInt();
             // Check the manuscript is in the underReview status and has 3 completed reviews
+            PreparedStatement astateQuery = con.prepareStatement(
+              "SELECT * FROM Manuscript WHERE manuscript_id = ? AND manuscript_status = 'UnderReview'");
+            astateQuery.setInt(1, manID);
+            ResultSet astateRes = astateQuery.executeQuery();
+            if (!astateRes.next()) {
+              System.out.println("Manuscript in invalid state");
+              break;
+            }
+
+
             PreparedStatement astatusQuery = con.prepareStatement(
               "SELECT * FROM Manuscript NATURAL JOIN Review "
-              + "WHERE manuscript_id = ? AND manuscript_status = 'UnderReview' "
-              + "AND review_recommendation IS NULL");
+              + "WHERE manuscript_id = ? AND review_recommendation IS NULL");
             astatusQuery.setInt(1, manID);
             ResultSet astatusRes = astatusQuery.executeQuery();
             if (astatusRes.next()) {
