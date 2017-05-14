@@ -577,18 +577,18 @@ public class mysqldb {
             manID = s.nextInt();
             // Check the manuscript is in the underReview status and has 3 completed reviews
             PreparedStatement rstatusQuery = con.prepareStatement(
-              "SELECT * as positive_reviews FROM Manuscript NATURAL JOIN Review "
+              "SELECT * FROM Manuscript NATURAL JOIN Review "
               + "WHERE manuscript_id = ? AND manuscript_status = 'UnderReview' "
               + "AND review_recommendation IS NULL");
             rstatusQuery.setInt(1, manID);
             ResultSet rstatusRes = rstatusQuery.executeQuery();
-            if (!rstatusRes.next()) {
+            if (rstatusRes.next()) {
               System.out.println("Error finding valid manuscript in database. This manuscript may not be in a valid state, or may not have enough completed reviews.");
               break;
             }
 
             PreparedStatement reviewCheck = con.prepareStatement(
-              "SELECT COUNT(*) FROM Review WHERE manuscript_id = ?");
+              "SELECT COUNT(*) as reviews FROM Review WHERE manuscript_id = ?");
             reviewCheck.setInt(1, manID);
             ResultSet reviewRes = reviewCheck.executeQuery();
             if (!reviewRes.next()) {
@@ -596,7 +596,8 @@ public class mysqldb {
               break;
             }
             else if (reviewRes.getInt(1) < 3) {
-              System.out.println("Error: this manuscript does not have enough reviews.");
+              System.out.println("Error: this manuscript does not have enough assigned reviews.");
+              break;
             }
 
             PreparedStatement rejectQuery = con.prepareStatement(
@@ -609,18 +610,18 @@ public class mysqldb {
             manID = s.nextInt();
             // Check the manuscript is in the underReview status and has 3 completed reviews
             PreparedStatement astatusQuery = con.prepareStatement(
-              "SELECT * as positive_reviews FROM Manuscript NATURAL JOIN Review "
+              "SELECT * FROM Manuscript NATURAL JOIN Review "
               + "WHERE manuscript_id = ? AND manuscript_status = 'UnderReview' "
               + "AND review_recommendation IS NULL");
             astatusQuery.setInt(1, manID);
             ResultSet astatusRes = astatusQuery.executeQuery();
-            if (!astatusRes.next()) {
+            if (astatusRes.next()) {
               System.out.println("Error finding valid manuscript in database. This manuscript may not be in a valid state, or may not have enough completed reviews.");
               break;
             }
 
             PreparedStatement areviewCheck = con.prepareStatement(
-              "SELECT COUNT(*) FROM Review WHERE manuscript_id = ?");
+              "SELECT COUNT(*) as reviews FROM Review WHERE manuscript_id = ?");
             areviewCheck.setInt(1, manID);
             ResultSet areviewRes = areviewCheck.executeQuery();
             if (!areviewRes.next()) {
@@ -628,7 +629,8 @@ public class mysqldb {
               break;
             }
             else if (areviewRes.getInt(1) < 3) {
-              System.out.println("Error: this manuscript does not have enough reviews.");
+              System.out.println("Error: this manuscript does not have enough assigned reviews.");
+              break;
             }
 
             PreparedStatement acceptQuery = con.prepareStatement(
