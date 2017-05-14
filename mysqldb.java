@@ -227,7 +227,7 @@ public class mysqldb {
 
           // retrieve an editor to assign to manuscript and notify author
           int editorID = authorEditor(con);
-          if (validRICode(con, riCode) && editorID != 0) {
+          if (editorID != 0) {
             System.out.print("Please enter the contents of your manuscript: ");
             s.nextLine();
             manuscriptQuery.setString(2, s.nextLine());
