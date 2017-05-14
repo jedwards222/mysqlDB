@@ -1,10 +1,11 @@
--- CS61 Lab 2D
+-- CS61 Lab 2E
 -- setup.sql
 -- Shashwat Chaturvedi, James Edwards
 -- May 2017
 
--- The below code creates our tables and inserts data into them
--- It is taken from our tables.sql and insert.sql files from L
+-- The below code combines our code from previous labs
+-- It creates our tables, adds our triggers to our database
+-- and inserts some data into each table
 
 -- Delete exisitng tables
 DROP TABLE  IF EXISTS Secondary_author;
@@ -17,7 +18,6 @@ DROP TABLE  IF EXISTS Reviewer;
 DROP TABLE  IF EXISTS Issue;
 DROP TABLE  IF EXISTS Editor;
 DROP TABLE  IF EXISTS Aoi;
-
 
 -- -----------------------------------------------------
 -- Table Aoi (Area of interest)
@@ -126,7 +126,6 @@ CREATE TABLE Manuscript (
     REFERENCES Author (author_id)
     );
 
-
 -- -----------------------------------------------------
 -- Table Article
 -- -----------------------------------------------------
@@ -196,6 +195,35 @@ CREATE TABLE Secondary_author (
     -- associated with it
     ON DELETE CASCADE
     );
+
+-- Add triggers
+
+DROP TRIGGER IF EXISTS before_submission;
+DROP TRIGGER IF EXISTS before_reviewer_resign;
+
+DELIMITER $$
+
+CREATE TRIGGER before_submission
+    BEFORE INSERT ON Manuscript
+    FOR EACH ROW BEGIN
+		DECLARE signal_message VARCHAR(128);
+        IF (SELECT COUNT(reviewer_id) from Reviewer_aoi where aoi_ri_code = NEW.aoi_ri_code) < 3 THEN
+            SET signal_message = 'Exception: not enough valid reviewers';
+			SIGNAL SQLSTATE '45000' SET message_text = signal_message;
+		END IF;
+END$$
+
+CREATE TRIGGER before_reviewer_resign
+    BEFORE DELETE ON Reviewer
+    FOR EACH ROW BEGIN
+		UPDATE Manuscript SET manuscript_status = "Submitted" WHERE manuscript_status="UnderReview" AND manuscript_id IN
+		(SELECT manuscript_id FROM
+			(SELECT * FROM Review GROUP BY manuscript_id HAVING COUNT(*) = 1)
+		AS ReviewsForReviewer
+		WHERE reviewer_id = OLD.reviewer_id);
+END$$
+
+DELIMITER ;
 
 -- Insert data into tables
 
@@ -326,7 +354,6 @@ INSERT INTO Aoi (aoi_name) VALUES
 ('Web engineering'),
 ('Systems engineering');
 
-
 -- Editors --
 INSERT INTO Editor (editor_lname, editor_fname) VALUES
 ("Reese","Cally"),
@@ -370,8 +397,8 @@ INSERT INTO Issue (issue_year, issue_period, issue_print_date) VALUES
 (1996, 3, '1996-08-25'),
 (1996, 4, '1996-11-20'),
 (1997, 1, '1997-01-11'),
-(1997, 2, '1997-04-10'),
-(1997, 3, '1997-08-25'),
+(1997, 2, NULL),
+(1997, 3, NULL),
 (1997, 4, '1997-11-20'),
 (1998, 1, '1997-01-11'),
 (1998, 2, '1997-04-10'),
@@ -381,8 +408,6 @@ INSERT INTO Issue (issue_year, issue_period, issue_print_date) VALUES
 (1999, 2, '1997-04-10'),
 (1999, 3, '1997-08-25'),
 (1999, 4, '1997-11-20');
-
-
 
 -- Reviewer --
 INSERT INTO Reviewer (reviewer_lname, reviewer_fname, reviewer_affiliation, reviewer_email) VALUES
@@ -416,7 +441,6 @@ INSERT INTO Reviewer (reviewer_lname, reviewer_fname, reviewer_affiliation, revi
 ("Mcknight","Xerxes","Brown","nec.leo.Morbi@dui.net"),
 ("Dillard","Duncan","Yale","at.pretium@sollicitudin.ca");
 
-
 -- Author --
 INSERT INTO Author (author_lname, author_fname, author_address, author_affiliation, author_email) VALUES
 ("Burris","Hayley","7356 Magnis Rd.","Harvard","luctus.ipsum@uteros.co.uk"),
@@ -432,82 +456,39 @@ INSERT INTO Author (author_lname, author_fname, author_address, author_affiliati
 
 -- Reviewer_aoi --
 INSERT INTO Reviewer_aoi (aoi_ri_code, reviewer_id) VALUES
-(4, 2),
 (5, 2),
 (5, 1),
-(30, 8),
-(3, 8),
+(5, 3),
 (10, 8),
-(11, 11),
-(8, 12),
-(9, 14),
-(20, 14),
-(2, 3),
-(2, 4),
-(31, 3),
-(8, 9),
-(7, 7),
-(10, 4),
-(8, 4),
-(12, 5);
-
+(10, 9),
+(10, 10),
+(15, 2),
+(15, 12);
 
 -- Manuscript --
 INSERT INTO Manuscript
 (manuscript_title, manuscript_blob, manuscript_update_date, manuscript_status, aoi_ri_code, author_id, editor_id)
 VALUES
-("A","Blob1","1999-10-17","Accepted",8,10,14),
-("B","Blob2","1997-03-17","UnderReview",12,6,1),
-("C","Blob3","1999-03-26","UnderReview",16,8,13),
-("D","Blob4","1998-03-19","Accepted",11,9,12),
-("E","Blob5","1998-11-01","UnderReview",23,1,10),
-("F","Blob6","1998-09-22","Accepted",15,4,13),
-("G","Blob7","1996-02-07","Typeset",13,3,14),
-("H","Blob8","1997-01-29","Published",20,3,15),
-("I","Blob9","1998-05-19","Rejected",5,4,4),
-("J","Blob10","1996-03-03","Scheduled",22,4,11),
-("K","Blob11","1998-12-10","Scheduled",21,1,2),
-("L","Blob12","1999-09-10","Typeset",15,9,8),
-("M","Blob13","1999-02-13","Scheduled",22,2,11),
-("N","Blob14","1998-02-01","Accepted",20,6,10),
-("O","Blob15","1997-05-05","Published",17,3,15),
-("P","Blob16","1999-08-10","UnderReview",28,10,14),
-("Q","Blob17","1996-12-08","Published",7,4,6),
-("R","Blob18","1997-05-03","Rejected",24,9,10),
-("S","Blob19","1997-03-22","Accepted",3,10,10),
-("T","Blob20","1997-03-22","Submitted",4,5,6),
-("U","Blob21","1997-03-22","Submitted",3,2,5);
-
+("A","Blob1","1999-10-17","Accepted",5,10,14),
+("B","Blob2","1997-03-17","UnderReview",5,6,1),
+("C","Blob3","1999-03-26","UnderReview",10,8,13),
+("D","Blob4","1998-03-19","Accepted",10,9,12),
+("E","Blob5","1998-03-19","Submitted",10,2,12);
 
 -- Article --
 INSERT INTO Article (manuscript_id, article_num_pages, article_order_num, article_start_page, issue_id) VALUES
-(2, 3, 1, 1, 6),
-(3, 3, 1, 1, 7),
-(7, 3, 1, 1, 8),
-(8, 3, 1, 1, 9),
-(10, 3, 1, 1, 1),
-(11, 3, 1, 1, 3),
-(12, 3, 1, 1, 4),
-(13, 3, 1, 1, 5),
-(14, 3, 1, 1, 10),
-(15, 90, 2, 91, 9),
-(17, 90, 1, 4, 10);
+(1, 3, 1, 1, 6),
+(4, 3, 1, 1, 7);
 
 -- Review --
 INSERT INTO Review
 (manuscript_id, reviewer_id, review_date_sent, review_date_returned,
 review_recommendation, review_appropriateness, review_clarity, review_contribution, review_methodology)
 VALUES
-(3,8,"1998-02-18","1998-05-16","Accept",8,5,3,6),
+(2,1,"1998-02-18","1998-05-16","Accept",8,5,3,6),
 (2,2,"1998-08-13","1998-07-10","Reject",2,1,4,8),
-(2,6,"1999-10-17","1996-08-04","Reject",2,10,3,5),
-(1,6,"1996-08-21","1997-02-07","Accept",7,10,5,6),
-(5,2,"1996-11-03","1997-09-21","Accept",6,5,7,7),
-(1,5,"1996-11-12","1997-01-21","Accept",9,4,6,8),
-(1,7,"1997-01-16","1999-10-23","Reject",9,9,3,10),
-(3,10,"1999-06-21","1999-10-07","Reject",8,4,6,1),
-(9,7,"1999-12-21","1999-02-07","Reject",4,4,1,2),
-(6,8,"1996-08-01","1996-09-05","Reject",4,8,10,5);
+(3,8,"1999-10-17","1996-08-04","Accept",2,10,3,5),
+(3,9,"1996-08-21","1997-02-07","Accept",7,10,5,6);
 
 -- Secondary_author --
 INSERT INTO Secondary_author

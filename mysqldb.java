@@ -45,10 +45,11 @@ public class mysqldb {
               handleReviewer(con);
               break;
             case 'd':
+              System.out.println("See you next time!");
               completed = true;
               break;
             default:
-              System.out.println("That is an invalid entry, try 'a', 'e', or 'r'");
+              System.out.println("That is an invalid entry, try 'a', 'e', 'r', or 'd'");
               break;
             }
           }
@@ -191,6 +192,21 @@ public class mysqldb {
           manuscriptQuery.setString(1, s.next());
           authorUpdateAffiliation(con, authorID, s.next());
           int riCode = s.nextInt();
+
+          // check if there are enough reviewers for manuscript
+          String query = "SELECT COUNT(*) as num_reviewers FROM Reviewer_aoi " +
+            "WHERE aoi_ri_code = " + riCode;
+          Statement checkReviewers = con.createStatement();
+          ResultSet numReviewers = checkReviewers.executeQuery(query);
+          numReviewers.next();
+          if (numReviewers.getInt(1) < 3) {
+            System.out.println("There aren't enough reviewers for your " +
+              "manuscript's area of interest. Please try again later.");
+            break;
+          }
+          numReviewers.close();
+          checkReviewers.close();
+
           int editorID = authorEditor(con);
           if (authorValidRICode(con, riCode) && editorID != 0) {
             System.out.print("Please enter the contents of your manuscript: ");
@@ -207,6 +223,7 @@ public class mysqldb {
             Statement stmt = con.createStatement();
             ResultSet manID =
               stmt.executeQuery("SELECT LAST_INSERT_ID()");
+            manID.next();
             int sAuthorOrderNum = 1;
             while (!secondaryAuthorsDone) {
               PreparedStatement secondaryAuthor = con.prepareStatement(
@@ -214,9 +231,11 @@ public class mysqldb {
                 "manuscript_id, sauthor_lname, sauthor_fname, " +
                 "sauthor_address, sauthor_email) VALUES (?, ?, ?, ?, ?, ?)");
               System.out.print(
-                "Do you have any secondary authors to enter? Enter 'y' if so: ");
-              if (s.next().equals('y') || s.next().equals('Y')) {
-                System.out.print("Enter <last_name> <first_name>: ");
+                "Do you have secondary authors to enter? Enter 'y' if so " +
+                "(anything else is considerd no): ");
+              String answer = s.next();
+              if (answer.equals("y") || answer.equals("Y")) {
+                System.out.print("Enter last name followed by first name: ");
                 String lName = s.next();
                 String fName = s.next();
                 s.nextLine();
@@ -231,8 +250,10 @@ public class mysqldb {
                 secondaryAuthor.setString(5, address);
                 secondaryAuthor.setString(6, email);
                 secondaryAuthor.executeUpdate();
+                sAuthorOrderNum++;
               }
               else {
+                System.out.println("Thanks for entering all of your authors.");
                 secondaryAuthorsDone = true;
               }
             }
@@ -255,6 +276,7 @@ public class mysqldb {
         }
       }
       catch (Exception e) {
+        e.printStackTrace();
         System.out.println("ERROR: Invalid input. Try again.");
       }
     }
@@ -770,8 +792,8 @@ public class mysqldb {
     System.out.println("Type 'help' for list of commands.");
     Scanner s = new Scanner(System.in);
     boolean finished = false;
-    try {
-      while (!finished) {
+    while (!finished) {
+      try{
         String action = s.next();
         int id;
         switch (action) {
@@ -791,6 +813,7 @@ public class mysqldb {
               System.out.println("Welcome " + fname + " " + lname + "! ");
 
               // Print out status of manuscripts
+              System.out.println("Here are your current reviews: ");
               reviewerStatus(con, id);
 
               handleReviewerLoggedIn(con, id);
@@ -829,7 +852,37 @@ public class mysqldb {
             ResultSet reviewerID =
               getReviewerID.executeQuery("SELECT LAST_INSERT_ID()");
             if (reviewerID.next()) {
-              System.out.println("Your reviewer ID is " + reviewerID.getObject(1));
+              int actualID = reviewerID.getInt(1);
+              System.out.println("Your reviewer ID is " + actualID);
+              System.out.println("Here are the possible areas of interest: ");
+              Statement possibleAois = con.createStatement();
+              printQuery(possibleAois.executeQuery("SELECT * from Aoi"));
+              System.out.println(
+                "You must have at least 1 AOI but no more than 3");
+
+              int reviewerAois = 0;
+              while (reviewerAois < 3) {
+                System.out.print("Enter the RICode of an AOI or 'f' to finish: ");
+                String str = s.next();
+                if (str.equals("f")) {
+                  if (reviewerAois == 0) {
+                    System.out.println("Must have at least one AOI");
+                    continue;
+                  }
+                  break;
+                }
+                int aoi = Integer.parseInt(str);
+                String query =
+                  "INSERT INTO Reviewer_aoi (aoi_ri_code, reviewer_id) " +
+                  "VALUES (?, ?)";
+                PreparedStatement aoiStmt = con.prepareStatement(query);
+                aoiStmt.setInt(1, aoi);
+                aoiStmt.setInt(2, actualID);
+                aoiStmt.executeUpdate();
+                reviewerAois++;
+              }
+              System.out.println("You're all set!");
+
               handleReviewerLoggedIn(con, reviewerID.getInt(1));
               finished = true;
             }
@@ -849,29 +902,36 @@ public class mysqldb {
 
           default:
             System.out.println("Invalid command - try again.");
+            reviewerHelp();
             break;
         }
       }
-    }
-    catch (SQLException e) {
-      System.out.println("SQL ERROR: Input invalid. Try again.");
-    }
-    catch (Exception e) {
-      System.out.println("ERROR: Input invalid. Try again.");
+      catch (SQLException e) {
+        System.out.println("SQL ERROR: Input invalid. Try again.");
+      }
+      catch (Exception e) {
+        e.printStackTrace();
+        System.out.println("ERROR: Input invalid. Try again.");
+      }
     }
   }
 
   /* Outputs status of all manuscripts being reviewed by this user */
   public static void reviewerStatus(Connection con, int id) {
     try {
-      PreparedStatement query = con.prepareStatement(
-        "SELECT manuscript_id, manuscript_title, "
-          + "manuscript_update_date, manuscript_status, author_id, "
-          + "FROM Manuscript JOIN Review WHERE reviewer_id = ? "
-          + " ORDER BY manuscript_status, manuscript_id");
-      query.setInt(1, id);
-      ResultSet res = query.executeQuery();
+      Statement stmt = con.createStatement();
+      String query =
+        "SELECT Manuscript.manuscript_id, manuscript_title, manuscript_update_date, " +
+        "manuscript_status, author_id FROM Manuscript NATURAL JOIN Review " +
+        "WHERE reviewer_id = " + id + " " +
+        "ORDER BY CASE manuscript_status " +
+          "WHEN 'Submitted' THEN 1 WHEN 'UnderReview' THEN 2 " +
+          "WHEN 'Rejected' THEN 3 WHEN 'Accepted' THEN 4 " +
+          "WHEN 'Typeset' THEN 5 WHEN 'Scheduled' THEN 6 " +
+          "WHEN 'Published' THEN 7 END, Manuscript.manuscript_id";
+      ResultSet res = stmt.executeQuery(query);
       printQuery(res);
+      stmt.close();
       res.close();
     }
     catch (SQLException e) {
@@ -906,6 +966,17 @@ public class mysqldb {
             ResultSet res = checkMan.executeQuery();
             if (!res.next()) { // reviewer not assigned to this review, bye!
               System.out.println("You don't have access to this manuscript!");
+              break;
+            }
+
+            // Check that manuscript has not already been reviewed
+            PreparedStatement checkStatus = con.prepareStatement(
+              "SELECT * FROM Manuscript NATURAL JOIN Review " +
+              "WHERE manuscript_id = ? AND manuscript_status = 'UnderReview'");
+            checkStatus.setInt(1, manID);
+            res = checkStatus.executeQuery();
+            if (!res.next()) {
+              System.out.println("This manuscript is not under review!");
               break;
             }
 
@@ -954,8 +1025,8 @@ public class mysqldb {
               updateReview.setInt(3, clarity);
               updateReview.setInt(4, method);
               updateReview.setInt(5, contrib);
-              updateReview.setInt(6, manID);
-              updateReview.setInt(7, id);
+              updateReview.setInt(6, id);
+              updateReview.setInt(7, manID);
               updateReview.executeUpdate();
               System.out.println("Review accepted! Thank you for your hard work");
             break;
@@ -967,6 +1038,7 @@ public class mysqldb {
 
           default:
             System.out.println("Invalid command - try again.");
+            reviewerLoggedInHelp();
             break;
         }
       }
@@ -1020,7 +1092,7 @@ public class mysqldb {
 
   public static void initialHelp() {
     System.out.println("Type 'a', 'e', or 'r' to indicate your job (author, editor, reviewer)");
-    System.out.println("Type 'done' to exit the application");
+    System.out.println("Type 'd' to exit the application");
   }
 
   /* Help output for user listing editor commands */
@@ -1092,7 +1164,7 @@ public class mysqldb {
     System.out.println("-----------------------Reviewer Commands-----------------------");
     System.out.println("Note: some commands will prompt user for further input after the initial command");
     System.out.format("%-40s", "Register as a new user: ");
-    System.out.println("register <fname> <lname> <email>");
+    System.out.println("register <fname> <lname>");
     System.out.format("%-40s","Login as a returning user:");
     System.out.println("login <id>");
     System.out.format("%-40s","Resign as user: ");
