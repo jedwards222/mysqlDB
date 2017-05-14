@@ -4,6 +4,8 @@
 
 ### Overview
 
+This is a database application for a journal. Editors, authors, and reviewers can login to interact with manuscripts in various ways.
+
 ### Compilation and Running
 
 Run `make` to compile the java source code, and `make run` to run the resulting executable. You must have the file `mysql-connector-java-5.1.42-bin.jar` somewhere in your file system, and specify the path to that file within the Makefile (example is provided).
