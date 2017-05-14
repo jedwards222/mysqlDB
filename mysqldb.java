@@ -13,13 +13,15 @@ public class mysqldb {
   public static final String DATABASE = "cshashwat_db";
   public static final String QUERY    = "SELECT * FROM Author;";
 
+  /*
+  main() - connects to DB
+  */
   public static void main(String[] args) {
 		Connection con = null;
 		Statement stmt = null;
 		ResultSet res  = null;
 		int numColumns = 0;
 
-		// attempt to connect to db
 		try {
 		    // load mysql driver
 		    Class.forName("com.mysql.jdbc.Driver").newInstance();
@@ -29,6 +31,7 @@ public class mysqldb {
 
         Scanner s = new Scanner(System.in);
         boolean completed = false;
+
         // Come back to main once a user signs out and let main close the connection
         while (!completed) {
           // Prompt user to indicate whether they are author/editor/reviewer
@@ -73,13 +76,15 @@ public class mysqldb {
   }
 
   /*
-  handleAuthor() - handle registering or logging in when in Editor mode
+  handleAuthor() - handle registering or logging in when in Author mode
   */
   public static void handleAuthor(Connection con) {
     System.out.println("You are in AUTHOR Mode.\nPlease register or login.");
     System.out.println("Type 'help' for list of commands.");
     Scanner s = new Scanner(System.in);
     boolean completed = false;
+
+    // loop until author quits
     while (!completed) {
       try {
         System.out.print("Command: ");
@@ -119,8 +124,11 @@ public class mysqldb {
           authorID.close();
         }
         else if (action.equals("login")) {
+          // allow author to log in based on id
           int authorID = Integer.parseInt(s.next());
           ResultSet result = validId(con, 'a', authorID);
+
+          // notify author if id doesn't exist in database
           if (!result.next()) {
             System.out.println("That ID is invalid. Please try again.");
           } else {
@@ -132,6 +140,7 @@ public class mysqldb {
             handleAuthorLoggedIn(con, authorID);
             completed = true;
           }
+
           result.close();
         }
         else if (action.equals("help")) {
@@ -155,7 +164,7 @@ public class mysqldb {
   }
 
   /*
-  handleAuthorLoggedIn() - handle possible author methods
+  handleAuthorLoggedIn() - handle author interactions with db when logged in
   */
   public static void handleAuthorLoggedIn(Connection con, int authorID) {
     System.out.println("You are now logged in as an Author.");
@@ -167,12 +176,12 @@ public class mysqldb {
         System.out.print("Command: ");
         String action = s.next();
 
-        // print out author manuscripts
         if (action.equals("status")) {
+          // print out author manuscripts
           authorStatus(con, authorID);
         }
-        // delete author's manuscript
         else if (action.equals("retract")) {
+          // delete author's chosen manuscripts
           int manuscriptID = s.nextInt();
           System.out.print("Are you sure? (y/n): ");
           String answer = s.next();
@@ -183,8 +192,8 @@ public class mysqldb {
             System.out.println("Will not retract manuscript.");
           }
         }
-        // submit new manuscript for authors
         else if (action.equals("submit")) {
+          // submit new manuscript for authors
           PreparedStatement manuscriptQuery = con.prepareStatement(
             "INSERT INTO Manuscript (manuscript_title, manuscript_blob, " +
             "manuscript_update_date, manuscript_status, aoi_ri_code, " +
@@ -192,6 +201,15 @@ public class mysqldb {
           manuscriptQuery.setString(1, s.next());
           authorUpdateAffiliation(con, authorID, s.next());
           int riCode = s.nextInt();
+
+          if (!validRICode(con, riCode)) {
+            System.out.println("Invalid RI code");
+            Statement possibleAois = con.createStatement();
+            printQuery(possibleAois.executeQuery("SELECT * from Aoi"));
+            System.out.println("\nHere are the possible RI codes. Try again");
+            possibleAois.close();
+            continue;
+          }
 
           // check if there are enough reviewers for manuscript
           String query = "SELECT COUNT(*) as num_reviewers FROM Reviewer_aoi " +
@@ -207,8 +225,9 @@ public class mysqldb {
           numReviewers.close();
           checkReviewers.close();
 
+          // retrieve an editor to assign to manuscript and notify author
           int editorID = authorEditor(con);
-          if (authorValidRICode(con, riCode) && editorID != 0) {
+          if (validRICode(con, riCode) && editorID != 0) {
             System.out.print("Please enter the contents of your manuscript: ");
             s.nextLine();
             manuscriptQuery.setString(2, s.nextLine());
@@ -224,6 +243,8 @@ public class mysqldb {
             ResultSet manID =
               stmt.executeQuery("SELECT LAST_INSERT_ID()");
             manID.next();
+
+            // get all secondary authors for manuscript
             int sAuthorOrderNum = 1;
             while (!secondaryAuthorsDone) {
               PreparedStatement secondaryAuthor = con.prepareStatement(
@@ -259,6 +280,7 @@ public class mysqldb {
             }
           }
           else {
+            // Possible reasons for failure
             System.out.println("Either your RI code is invalid or there are " +
             "currently no editors in the system. Please try again later.");
           }
@@ -282,9 +304,12 @@ public class mysqldb {
     }
   }
 
+  /*
+  authorStatus() - SQL query to retrieve all manuscripts for author
+  */
   public static void authorStatus(Connection con, int authorID) {
     try {
-      // Present manuscripts in order of status
+      // presents manuscripts ordered by status, then man id
       String query =
         "SELECT manuscript_id, manuscript_title, manuscript_update_date, " +
         "manuscript_status, aoi_ri_code, editor_id FROM Manuscript " +
@@ -305,9 +330,14 @@ public class mysqldb {
     }
   }
 
+  /*
+  authorManuscriptRetract() - SQL query to delete a manuscript for author
+  */
   public static void authorManuscriptRetract(
     Connection con, int authorID, int manuscriptID) {
     try {
+      // make sure manuscript is for the author
+      // should not delete manuscripts that don't belong to him
       String checkQuery =
         "SELECT * FROM Manuscript WHERE manuscript_id = " + manuscriptID +
         " AND author_id = " + authorID;
@@ -330,6 +360,9 @@ public class mysqldb {
     }
   }
 
+  /*
+  authorUpdateAffiliation() - SQL query to update author's affiliation
+  */
   public static void authorUpdateAffiliation(
     Connection con, int authorID, String affiliation) {
     try {
@@ -345,25 +378,12 @@ public class mysqldb {
     }
   }
 
-  public static boolean authorValidRICode(Connection con, int riCode) {
-    try {
-      String query = "SELECT * FROM Aoi WHERE aoi_ri_code = " + riCode;
-      Statement stmt = con.createStatement();
-      if (!stmt.executeQuery(query).next()) {
-        stmt.close();
-        return false;
-      }
-      stmt.close();
-      return true;
-    }
-    catch (SQLException e) {
-      System.out.println("ERROR: Invalid input. Try again.");
-      return false;
-    }
-  }
-
+  /*
+  authorEditor() - SQL query to retrieve editor for new manuscript
+  */
   public static int authorEditor(Connection con) {
     try {
+      // retrieves editor who currently has least manuscripts assigned
       String query = "SELECT editor_id, MIN(manuscripts_per_editor) FROM " +
       "(SELECT editor_id, COUNT(*) as manuscripts_per_editor FROM " +
       "(SELECT * FROM Manuscript) as editors GROUP BY editor_id) as min_editor";
@@ -458,9 +478,12 @@ public class mysqldb {
     }
   }
 
-  /* Outputs status of all manuscripts */
+  /*
+  editorStatus() - SQL query to retrieve manuscripts for editor
+  */
   public static void editorStatus(Connection con) {
     try {
+      // order by status and then man id
       String query =
         "SELECT manuscript_id, manuscript_title, manuscript_update_date, " +
         "manuscript_status, author_id, editor_id FROM Manuscript " +
@@ -480,6 +503,9 @@ public class mysqldb {
     }
   }
 
+  /*
+  handleEditorLoggedIn() - handles all commands for editor when logged in
+  */
   public static void handleEditorLoggedIn(Connection con, int id) {
     System.out.println("\nType 'help' for possible commands");
     Scanner s = new Scanner(System.in);
@@ -785,7 +811,9 @@ public class mysqldb {
     }
   }
 
-
+  /*
+  handleReviewer() - register, login or resign reviewer
+  */
   public static void handleReviewer(Connection con) {
     // Check whether they would like to login, register, or resign
     System.out.println("You are in REVIEWER Mode.\nPlease register, login, or resign");
@@ -861,17 +889,22 @@ public class mysqldb {
                 "You must have at least 1 AOI but no more than 3");
 
               int reviewerAois = 0;
+              // handles inputting AOIs for reviewer
               while (reviewerAois < 3) {
                 System.out.print("Enter the RICode of an AOI or 'f' to finish: ");
                 String str = s.next();
                 if (str.equals("f")) {
                   if (reviewerAois == 0) {
-                    System.out.println("Must have at least one AOI");
+                    System.out.println("Must have at least one AOI.");
                     continue;
                   }
                   break;
                 }
                 int aoi = Integer.parseInt(str);
+                if (!validRICode(con, aoi)) {
+                  System.out.println("Must have a valid RI code. Try again.");
+                  continue;
+                }
                 String query =
                   "INSERT INTO Reviewer_aoi (aoi_ri_code, reviewer_id) " +
                   "VALUES (?, ?)";
@@ -916,9 +949,13 @@ public class mysqldb {
     }
   }
 
-  /* Outputs status of all manuscripts being reviewed by this user */
+  /*
+  reviewerStatus() - SQL query that outputs status of all manuscripts
+  being reviewed by this user
+  */
   public static void reviewerStatus(Connection con, int id) {
     try {
+      // order by status, then man id
       Statement stmt = con.createStatement();
       String query =
         "SELECT Manuscript.manuscript_id, manuscript_title, manuscript_update_date, " +
@@ -939,12 +976,15 @@ public class mysqldb {
     }
   }
 
+  /*
+  handleReviewerLoggedIn() - handles all commands for logged in reviewer
+  */
   public static void handleReviewerLoggedIn(Connection con, int id) {
     System.out.println("Type 'help' for list of commands.");
     Scanner s = new Scanner(System.in);
     boolean finished = false;
-    try {
-      while (!finished) {
+    while(!finished) {
+      try {
         System.out.print("Command: ");
         String action = s.next();
         switch (action) {
@@ -964,9 +1004,9 @@ public class mysqldb {
             checkMan.setInt(1, manID);
             checkMan.setInt(2, id);
             ResultSet res = checkMan.executeQuery();
-            if (!res.next()) { // reviewer not assigned to this review, bye!
+            if (!res.next()) { // reviewer not assigned to this review
               System.out.println("You don't have access to this manuscript!");
-              break;
+              continue;
             }
 
             // Check that manuscript has not already been reviewed
@@ -977,7 +1017,7 @@ public class mysqldb {
             res = checkStatus.executeQuery();
             if (!res.next()) {
               System.out.println("This manuscript is not under review!");
-              break;
+              continue;
             }
 
             // ask if they want to reject or accept
@@ -989,28 +1029,28 @@ public class mysqldb {
             int approp = s.nextInt();
             if (approp > 10 || approp < 1) {
               System.out.println("Invalid input!");
-              break;
+              continue;
             }
             s.nextLine();
             System.out.print("Please input a score (1-10) for clarity: ");
             int clarity = s.nextInt();
             if (clarity > 10 || clarity < 1) {
               System.out.println("Invalid input!");
-              break;
+              continue;
             }
             s.nextLine();
             System.out.print("Please input a score (1-10) for methodology: ");
             int method = s.nextInt();
             if (method > 10 || method < 1) {
               System.out.println("Invalid input!");
-              break;
+              continue;
             }
             s.nextLine();
             System.out.print("Please input a score (1-10) for contribution: ");
             int contrib = s.nextInt();
             if (contrib > 10 || contrib < 1) {
               System.out.println("Invalid input!");
-              break;
+              continue;
             }
             s.nextLine();
 
@@ -1042,20 +1082,18 @@ public class mysqldb {
             break;
         }
       }
-    }
-    catch (SQLException e) {
-      System.out.println("SQL ERROR: Input invalid. Try again.");
-    }
-    catch (Exception e) {
-      System.out.println("ERROR: Input invalid. Try again.");
+      catch (SQLException e) {
+        System.out.println("SQL ERROR: Input invalid. Try again.");
+      }
+      catch (Exception e) {
+        System.out.println("ERROR: Input invalid. Try again.");
+      }
     }
   }
 
   /*
-    validId constructs a query to check if the given user exists in the db
+    validId() - SQL query to check if the given user exists in the db
     Returns true if user exists, otherwise returns false
-
-    Maybe should return
   */
   public static ResultSet validId(Connection con, char mode, int id) {
     if (id < 0) {
@@ -1188,7 +1226,27 @@ public class mysqldb {
   }
 
   /*
-    Prints the result set of a query in a table format
+  validRICode() - SQL query to check if entered RI Code is valid
+  */
+  public static boolean validRICode(Connection con, int riCode) {
+    try {
+      String query = "SELECT * FROM Aoi WHERE aoi_ri_code = " + riCode;
+      Statement stmt = con.createStatement();
+      if (!stmt.executeQuery(query).next()) {
+        stmt.close();
+        return false;
+      }
+      stmt.close();
+      return true;
+    }
+    catch (SQLException e) {
+      System.out.println("ERROR: Invalid input. Try again.");
+      return false;
+    }
+  }
+
+  /*
+    printQuery() - prints the result set of a query in a table format
   */
   public static void printQuery(ResultSet res) {
     try {
