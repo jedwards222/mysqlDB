@@ -475,11 +475,6 @@ VALUES
 ("D","Blob4","1998-03-19","Accepted",10,9,12),
 ("E","Blob5","1998-03-19","Submitted",10,2,12);
 
--- Article --
-INSERT INTO Article (manuscript_id, article_num_pages, article_order_num, article_start_page, issue_id) VALUES
-(1, 3, 1, 1, 6),
-(4, 3, 1, 1, 7);
-
 -- Review --
 INSERT INTO Review
 (manuscript_id, reviewer_id, review_date_sent, review_date_returned,

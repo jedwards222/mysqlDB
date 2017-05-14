@@ -220,7 +220,7 @@ public class mysqldb {
           if (numReviewers.getInt(1) < 3) {
             System.out.println("There aren't enough reviewers for your " +
               "manuscript's area of interest. Please try again later.");
-            break;
+            continue;
           }
           numReviewers.close();
           checkReviewers.close();
@@ -256,7 +256,8 @@ public class mysqldb {
                 "(anything else is considerd no): ");
               String answer = s.next();
               if (answer.equals("y") || answer.equals("Y")) {
-                System.out.print("Enter last name followed by first name: ");
+                System.out.print("Enter last name followed by first name " +
+                  "(no commas): ");
                 String lName = s.next();
                 String fName = s.next();
                 s.nextLine();
@@ -878,6 +879,7 @@ public class mysqldb {
     boolean finished = false;
     while (!finished) {
       try{
+        System.out.print("Command: ");
         String action = s.next();
         int id;
         switch (action) {
@@ -947,7 +949,7 @@ public class mysqldb {
               int reviewerAois = 0;
               // handles inputting AOIs for reviewer
               while (reviewerAois < 3) {
-                System.out.print("Enter the RICode of an AOI or 'f' to finish: ");
+                System.out.print("Enter the RICode of an AOI (or 'f' to finish): ");
                 String str = s.next();
                 if (str.equals("f")) {
                   if (reviewerAois == 0) {
@@ -956,7 +958,14 @@ public class mysqldb {
                   }
                   break;
                 }
-                int aoi = Integer.parseInt(str);
+                int aoi = 0;
+                try {
+                  aoi = Integer.parseInt(str);
+                }
+                catch (NumberFormatException num) {
+                  System.out.println("Invalid option. Try again.");
+                  continue;
+                }
                 if (!validRICode(con, aoi)) {
                   System.out.println("Must have a valid RI code. Try again.");
                   continue;
