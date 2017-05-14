@@ -28,12 +28,11 @@ public class mysqldb {
 		    con = DriverManager.getConnection(SERVER+DATABASE, USERNAME, PASSWORD);
 
         Scanner s = new Scanner(System.in);
-        // Prompt user to indicate whether they are author/editor/reviewer
-        System.out.println("Type 'a', 'e', or 'r' to indicate your job (author, editor, reviewer)");
-        boolean success = false;
+        boolean completed = false;
         // Come back to main once a user signs out and let main close the connection
-        while (!success) {
-          success = true;
+        while (!completed) {
+          // Prompt user to indicate whether they are author/editor/reviewer
+          initialHelp();
           char resp = s.next().charAt(0);
           switch (resp) {
             case 'a':
@@ -45,35 +44,39 @@ public class mysqldb {
             case 'r':
               handleReviewer(con);
               break;
+            case 'd':
+              completed = true;
+              break;
             default:
               System.out.println("That is an invalid entry, try 'a', 'e', or 'r'");
-              success = false;
               break;
             }
           }
-
           s.close();
 		}
     catch (SQLException e ) {          // catch SQL errors
 		    System.err.format("SQL Error: %s", e.getMessage());
 		}
     catch (Exception e) {              // anything else
-		    e.printStackTrace();
-		} finally {
+		    System.err.format("Error: %s", e.getMessage());
+		}
+    finally {
 		  // cleanup
 		  try {
   			con.close();
   			stmt.close();
   			res.close();
-  			System.out.print("\nConnection terminated.\n");
 	    }
       catch (Exception e) { /* ignore cleanup errors */ }
 		}
   }
 
+  /*
+  handleAuthor() - handle registering or logging in when in Editor mode
+  */
   public static void handleAuthor(Connection con) {
     System.out.println("You are in AUTHOR Mode.\nPlease register or login.");
-    authorHelp();
+    System.out.println("Type 'help' for list of commands.");
     Scanner s = new Scanner(System.in);
     boolean completed = false;
     while (!completed) {
@@ -82,6 +85,7 @@ public class mysqldb {
         String action = s.next();
 
         if (action.equals("register")) {
+          // Register author in database
           PreparedStatement registerQuery = con.prepareStatement(
             "INSERT INTO Author (author_lname, " +
             "author_fname, author_address, author_affiliation, author_email) " +
@@ -101,6 +105,7 @@ public class mysqldb {
           registerQuery.executeUpdate();
 
           Statement getAuthorID = con.createStatement();
+          // Notify user of his ID
           ResultSet authorID =
             getAuthorID.executeQuery("SELECT LAST_INSERT_ID()");
           if (authorID.next()) {
@@ -108,19 +113,13 @@ public class mysqldb {
             handleAuthorLoggedIn(con, authorID.getInt(1));
             completed = true;
           }
-          else {
-            System.out.println("Error. Please try again.");
-          }
           registerQuery.close();
           getAuthorID.close();
           authorID.close();
         }
         else if (action.equals("login")) {
-          PreparedStatement loginQuery = con.prepareStatement(
-            "SELECT * FROM Author WHERE author_id = ?");
           int authorID = Integer.parseInt(s.next());
-          loginQuery.setInt(1, authorID);
-          ResultSet result = loginQuery.executeQuery();
+          ResultSet result = validId(con, 'a', authorID);
           if (!result.next()) {
             System.out.println("That ID is invalid. Please try again.");
           } else {
@@ -132,7 +131,6 @@ public class mysqldb {
             handleAuthorLoggedIn(con, authorID);
             completed = true;
           }
-          loginQuery.close();
           result.close();
         }
         else if (action.equals("help")) {
@@ -142,26 +140,25 @@ public class mysqldb {
           completed = true;
         }
         else {
-          System.out.println("That command is invalid.");
+          System.out.println("ERROR: That command is invalid. Try again.");
           authorHelp();
         }
       }
       catch (SQLException e) {
-        e.printStackTrace();
-        System.out.println("Seems like there were errors with your input. " +
-          "Please try again. Remember: fill out every field!");
+        System.out.println("SQL ERROR: Input is invalid. Try again.");
       }
       catch (Exception e) {
-        e.printStackTrace();
-        System.out.println("Seems like there was an error " +
-          "or your input is invalid. Please try again.");
+        System.out.println("ERROR: Input is invalid. Try again.");
       }
     }
   }
 
+  /*
+  handleAuthorLoggedIn() - handle possible author methods
+  */
   public static void handleAuthorLoggedIn(Connection con, int authorID) {
-    System.out.println("You are now logged in as an Author.\n");
-    authorLoggedInHelp();
+    System.out.println("You are now logged in as an Author.");
+    System.out.println("Type 'help' for list of commands.\n");
     Scanner s = new Scanner(System.in);
     boolean completed = false;
     while (!completed) {
@@ -169,9 +166,11 @@ public class mysqldb {
         System.out.print("Command: ");
         String action = s.next();
 
+        // print out author manuscripts
         if (action.equals("status")) {
           authorStatus(con, authorID);
         }
+        // delete author's manuscript
         else if (action.equals("retract")) {
           int manuscriptID = s.nextInt();
           System.out.print("Are you sure? (y/n): ");
@@ -183,6 +182,7 @@ public class mysqldb {
             System.out.println("Will not retract manuscript.");
           }
         }
+        // submit new manuscript for authors
         else if (action.equals("submit")) {
           PreparedStatement manuscriptQuery = con.prepareStatement(
             "INSERT INTO Manuscript (manuscript_title, manuscript_blob, " +
@@ -201,7 +201,41 @@ public class mysqldb {
             manuscriptQuery.setInt(5, authorID);
             manuscriptQuery.setInt(6, editorID);
             manuscriptQuery.executeUpdate();
-            System.out.println("Manuscript created.");
+            System.out.println("Manuscript created and assigned to editor " +
+            editorID);
+            boolean secondaryAuthorsDone = false;
+            Statement stmt = con.createStatement();
+            ResultSet manID =
+              stmt.executeQuery("SELECT LAST_INSERT_ID()");
+            int sAuthorOrderNum = 1;
+            while (!secondaryAuthorsDone) {
+              PreparedStatement secondaryAuthor = con.prepareStatement(
+                "INSERT INTO Secondary_author (sauthor_order_num, " +
+                "manuscript_id, sauthor_lname, sauthor_fname, " +
+                "sauthor_address, sauthor_email) VALUES (?, ?, ?, ?, ?, ?)");
+              System.out.print(
+                "Do you have any secondary authors to enter? Enter 'y' if so: ");
+              if (s.next().equals('y') || s.next().equals('Y')) {
+                System.out.print("Enter <last_name> <first_name>: ");
+                String lName = s.next();
+                String fName = s.next();
+                s.nextLine();
+                System.out.print("Enter address: ");
+                String address = s.nextLine();
+                System.out.print("Enter email address: ");
+                String email = s.next();
+                secondaryAuthor.setInt(1, sAuthorOrderNum);
+                secondaryAuthor.setInt(2, manID.getInt(1));
+                secondaryAuthor.setString(3, lName);
+                secondaryAuthor.setString(4, fName);
+                secondaryAuthor.setString(5, address);
+                secondaryAuthor.setString(6, email);
+                secondaryAuthor.executeUpdate();
+              }
+              else {
+                secondaryAuthorsDone = true;
+              }
+            }
           }
           else {
             System.out.println("Either your RI code is invalid or there are " +
@@ -221,15 +255,14 @@ public class mysqldb {
         }
       }
       catch (Exception e) {
-        e.printStackTrace();
-        System.out.println("Seems like there was an error " +
-          "or your input is invalid. Please try again.");
+        System.out.println("ERROR: Invalid input. Try again.");
       }
     }
   }
 
   public static void authorStatus(Connection con, int authorID) {
     try {
+      // Present manuscripts in order of status
       String query =
         "SELECT manuscript_id, manuscript_title, manuscript_update_date, " +
         "manuscript_status, aoi_ri_code, editor_id FROM Manuscript " +
@@ -241,12 +274,12 @@ public class mysqldb {
           "WHEN 'Published' THEN 7 END, manuscript_id";
       Statement stmt = con.createStatement();
       ResultSet res = stmt.executeQuery(query);
-      printQuery(query, res);
+      printQuery(res);
       stmt.close();
       res.close();
     }
     catch (SQLException e) {
-      e.printStackTrace();
+      System.out.println("ERROR: Error in database. Try again.");
     }
   }
 
@@ -271,7 +304,7 @@ public class mysqldb {
       stmt.close();
     }
     catch (SQLException e) {
-      e.printStackTrace();
+      System.out.println("ERROR: Invalid input. Try again.");
     }
   }
 
@@ -286,7 +319,7 @@ public class mysqldb {
       stmt.close();
     }
     catch (SQLException e) {
-      e.printStackTrace();
+      System.out.println("ERROR: Invalid input. Try again.");
     }
   }
 
@@ -302,7 +335,7 @@ public class mysqldb {
       return true;
     }
     catch (SQLException e) {
-      e.printStackTrace();
+      System.out.println("ERROR: Invalid input. Try again.");
       return false;
     }
   }
@@ -315,25 +348,20 @@ public class mysqldb {
       Statement stmt = con.createStatement();
       ResultSet result = stmt.executeQuery(query);
       if (!result.next()) {
-        stmt.close();
-        result.close();
         return 0;
       }
       else {
-        stmt.close();
-        result.close();
         return result.getInt("editor_id");
       }
     }
     catch (SQLException e) {
-      e.printStackTrace();
+      System.out.println("SQL ERROR: Database error. Try again.");
       return 0;
     }
   }
 
   /*
   handleEditor() - handle registering or logging in when in Editor mode
-  Return when error detected in user input
   */
   public static void handleEditor(Connection con) {
     System.out.println("You are in EDITOR Mode.\nPlease register or login.");
@@ -342,6 +370,7 @@ public class mysqldb {
     boolean finished = false;
     try {
       while (!finished) {
+        System.out.print("Command: ");
         String action = s.next();
         int id;
         if (action.equals("register")) {
@@ -399,8 +428,11 @@ public class mysqldb {
         }
       }
     }
-    catch (SQLException exception) {
-      exception.printStackTrace();
+    catch (SQLException e) {
+      System.out.println("SQL ERROR: Input invalid. Try again.");
+    }
+    catch (Exception e) {
+      System.out.println("ERROR: Input invalid. Try again.");
     }
   }
 
@@ -417,12 +449,12 @@ public class mysqldb {
           "WHEN 'Published' THEN 7 END, manuscript_id";
       Statement stmt = con.createStatement();
       ResultSet res = stmt.executeQuery(query);
-      printQuery(query, res);
+      printQuery(res);
       stmt.close();
       res.close();
     }
     catch (SQLException e) {
-      e.printStackTrace();
+      System.out.println("SQL ERROR: Database error. Try again.");
     }
   }
 
@@ -435,6 +467,7 @@ public class mysqldb {
     while (!finished) {
       try {
         stmt = con.createStatement();
+        System.out.print("Command: ");
         String action = s.next();
         switch (action) {
           case "status":
@@ -716,7 +749,10 @@ public class mysqldb {
         }
       }
       catch (SQLException exception) {
-        exception.printStackTrace();
+        System.out.println("SQL ERROR: Input invalid. Try again.");
+      }
+      catch (Exception e) {
+        System.out.println("ERROR: Input invalid. Try again.");
       }
       finally {
         try {
@@ -818,7 +854,10 @@ public class mysqldb {
       }
     }
     catch (SQLException e) {
-      e.printStackTrace();
+      System.out.println("SQL ERROR: Input invalid. Try again.");
+    }
+    catch (Exception e) {
+      System.out.println("ERROR: Input invalid. Try again.");
     }
   }
 
@@ -832,11 +871,11 @@ public class mysqldb {
           + " ORDER BY manuscript_status, manuscript_id");
       query.setInt(1, id);
       ResultSet res = query.executeQuery();
-      printQuery(query.toString(), res);
+      printQuery(res);
       res.close();
     }
     catch (SQLException e) {
-      e.printStackTrace();
+      System.out.println("SQL ERROR: Database error. Try again.");
     }
   }
 
@@ -846,6 +885,7 @@ public class mysqldb {
     boolean finished = false;
     try {
       while (!finished) {
+        System.out.print("Command: ");
         String action = s.next();
         switch (action) {
           case "help":
@@ -870,7 +910,7 @@ public class mysqldb {
             }
 
             // ask if they want to reject or accept
-            System.out.print("Please type a if you would like to accept the manuscript (any other input taken as reject): ");
+            System.out.print("Please type 'a' if you would like to accept the manuscript (any other input taken as reject): ");
             String response = s.next().equals("a") ? "Accept" : "Reject";
 
             // ask for ratings 1-10 for four categories
@@ -932,7 +972,10 @@ public class mysqldb {
       }
     }
     catch (SQLException e) {
-      e.printStackTrace();
+      System.out.println("SQL ERROR: Input invalid. Try again.");
+    }
+    catch (Exception e) {
+      System.out.println("ERROR: Input invalid. Try again.");
     }
   }
 
@@ -970,9 +1013,14 @@ public class mysqldb {
       return res;
     }
     catch (Exception e) {
-      e.printStackTrace();
+      System.out.println("ERROR: Database error. Try again.");
       return null;
     }
+  }
+
+  public static void initialHelp() {
+    System.out.println("Type 'a', 'e', or 'r' to indicate your job (author, editor, reviewer)");
+    System.out.println("Type 'done' to exit the application");
   }
 
   /* Help output for user listing editor commands */
@@ -1068,13 +1116,9 @@ public class mysqldb {
   }
 
   /*
-    Prints the query in a table format
+    Prints the result set of a query in a table format
   */
-  public static void printQuery(String query, ResultSet res) {
-    // don't need to print query
-    // if (query != null) {
-    //   System.out.format("Query executed: '%s'\n\nResults:\n", query);
-    // }
+  public static void printQuery(ResultSet res) {
     try {
       int numColumns = res.getMetaData().getColumnCount();
       for(int i = 1; i <= numColumns; i++) {
